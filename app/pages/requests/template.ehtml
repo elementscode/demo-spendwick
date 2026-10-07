@@ -1,0 +1,143 @@
+import "./style.css";
+import type { Listener } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { CurrentUser, RequestRow, STATUSES, Status, money, requestNumber, shortDate, statusLabel } from "#app/shared/models";
+import { RequestChange, RequestsPage, fetchRequestsPage } from "#app/shared/services/requests";
+import { Layout } from "#app/shared/templates/layout";
+import { BudgetBar, StatusCell } from "#app/shared/templates/request-ui";
+
+const TABS = STATUSES.map((s) => ({
+  id: s,
+  label: statusLabel(s),
+}));
+
+interface View {
+  page: RequestsPage;
+  filter: Status | "all";
+}
+
+function onChange(view: View) {
+  view.page = fetchRequestsPage();
+}
+
+function visible(view: View): RequestRow[] {
+  return view.filter === "all" ? view.page.rows : view.page.rows.filter((r) => r.status === view.filter);
+}
+
+function count(rows: RequestRow[], status: Status | "all"): number {
+  return status === "all" ? rows.length : rows.filter((r) => r.status === status).length;
+}
+
+function scopeLine(user: CurrentUser): string {
+  if (user.role === "finance") {
+    return "Every purchase request across the company.";
+  }
+
+  if (user.headOfId) {
+    return `Your requests and everything submitted in ${user.departmentName}.`;
+  }
+
+  return "Requests you have made.";
+}
+
+<html lang="en" class="page-requests" (
+  user: CurrentUser,
+  changes: Listener<RequestChange>,
+  initial: RequestsPage,
+  private view: View = {
+    page: initial,
+    filter: "all",
+  },
+) oninit={() => changes.on("notify", () => onChange(view))}>
+  <head>
+    <title>Requests · Spendwick</title>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout {user} active="requests">
+      <div class="stack is-xl">
+        <div class="page-head row">
+          <div class="stack is-xs">
+            <h1>Requests</h1>
+            <p>{scopeLine(user)}</p>
+          </div>
+          <a href="/requests/new" class="button is-primary">New request</a>
+        </div>
+
+        <div e:if={user.role !== "employee"} class={["requests-top", !view.page.budget && "is-single"]}>
+          <div class="card">
+            <div class="card-head">
+              <h2>Waiting on you<span class="pill count">{view.page.inbox.length}</span></h2>
+            </div>
+            <ul e:if={view.page.inbox.length > 0} class="inbox">
+              <li e:for={r of view.page.inbox}>
+                <a href={`/requests/${r.id}`}>
+                  <span class="inbox-item">{r.item}</span>
+                  <span class="amount">{money(r.amountCents)}</span>
+                  <span class="inbox-meta">{requestNumber(r.number)} · {r.requesterName} · {r.departmentName}</span>
+                  <span class="inbox-meta">{r.pendingStep === "finance" ? "Finance approval" : "Head approval"}</span>
+                </a>
+              </li>
+            </ul>
+            <div e:else class="card-body inbox-empty">Nothing needs your approval right now.</div>
+          </div>
+
+          <div e:if={view.page.budget} class="card">
+            <div class="card-body">
+              <BudgetBar budget={view.page.budget!} />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="tabs">
+            <div class="tab-list table-wrap">
+              <button class={["tab", view.filter === "all" && "is-active"]} onclick={() => view.filter = "all"}>
+                All<span class="tab-count">{count(view.page.rows, "all")}</span>
+              </button>
+              <button e:for={t of TABS}
+                      class={["tab", view.filter === t.id && "is-active"]}
+                      onclick={() => view.filter = t.id}>
+                {t.label}<span class="tab-count">{count(view.page.rows, t.id)}</span>
+              </button>
+            </div>
+          </div>
+
+          <div e:if={visible(view).length > 0} class="table-wrap">
+            <table class="requests-table">
+              <thead>
+                <tr>
+                  <th class="hide-sm">#</th>
+                  <th>Item</th>
+                  <th e:if={user.role !== "employee"} class="hide-sm">Requested by</th>
+                  <th class="hide-sm">Category</th>
+                  <th class="right">Amount</th>
+                  <th>Status</th>
+                  <th class="hide-sm">Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr e:for={r of visible(view)}>
+                  <td class="num hide-sm">{requestNumber(r.number)}</td>
+                  <td class="item">
+                    <a href={`/requests/${r.id}`}>{r.item}</a>
+                    <span class="sub">{r.vendor} · {r.departmentName}</span>
+                  </td>
+                  <td e:if={user.role !== "employee"} class="hide-sm">{r.requesterName}</td>
+                  <td class="hide-sm">{r.category}</td>
+                  <td class="right amount">{money(r.amountCents)}</td>
+                  <td><StatusCell state={r.status} pendingStep={r.pendingStep} /></td>
+                  <td class="hide-sm sub">{r.submittedAt ? shortDate(r.submittedAt) : "Not yet"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div e:else class="empty-state">
+            <p e:if={view.filter === "all"}>No requests yet. <a href="/requests/new">Start one</a>.</p>
+            <p e:else>No {statusLabel(view.filter as Status).toLowerCase()} requests.</p>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

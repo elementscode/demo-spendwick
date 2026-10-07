@@ -1,0 +1,99 @@
+@import "#app/shared/styles/page.css";
+
+.page-signin .signin-main {
+  min-height: 100vh;
+  padding-block: var(--space-12);
+}
+
+.signin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--space-12);
+  align-items: start;
+}
+
+.signin-brand {
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-lg);
+}
+
+.signin-intro {
+  color: var(--ink-soft);
+}
+
+.demo-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-4);
+}
+
+.demo-group h3 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.demo-account {
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  height: auto;
+}
+
+.demo-account:hover {
+  border-color: var(--accent-edge);
+  background: var(--accent-soft);
+}
+
+.demo-account-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+}
+
+.demo-account-email {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  font-family: var(--font-mono);
+  color: var(--ink-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 52rem) {
+  .signin-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-10);
+  }
+
+  .page-signin .signin-main {
+    padding-block: var(--space-8);
+  }
+}
+
+.demo-groups {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page-signin h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}

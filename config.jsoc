@@ -1,0 +1,63 @@
+// Config for the build and the app.
+//
+// Import it anywhere. Values are constant folded at build time, so changing
+// one rebuilds the files that read it.
+//
+//   import config from "#config";
+//   let name = config.database.name;
+//
+// env("NAME", fallback) reads a variable from the active environment's file:
+// config/env/development.env, config/env/production.env, and so on.
+//
+// Keys are server only. A /** @browser */ tag on a property puts that
+// property, and everything under it, in the browser bundle.
+//
+//   /** @browser */
+//   public: { appName: "Acme" },
+{
+  package: {
+    dependencies: {
+      "@elements/app": "latest",
+      "@elements/style": "latest",
+      "@types/node": "latest",
+      "tslib": "latest",
+    },
+  },
+
+  resolve: {
+    imports: {
+      "#config": "./config.jsoc",
+      "#app/*": "./app/*",
+    },
+  },
+
+  server: {
+    port: env<number>("PORT", 4000),
+    address: env("ADDRESS", "127.0.0.1"),
+  },
+
+  database: {
+    name: "spendwick",
+    host: env("DB_HOST", "127.0.0.1"),
+    port: env("DB_PORT", 5433),
+    user: env("DB_USER", "postgres"),
+    password: env("DB_PASSWORD", ""),
+    default: env("DB_DEFAULT", ""),
+    ssl: env("DB_SSL", ""),
+    sslRootCert: env("DB_SSL_ROOT_CERT", ""),
+  },
+
+  email: {
+    live: env<boolean>("EMAIL_LIVE", false),
+    from: "Spendwick <approvals@spendwick.example>",
+    host: env("SMTP_HOST"),
+    port: env<number>("SMTP_PORT", 587),
+    user: env("SMTP_USER"),
+    password: env("SMTP_PASSWORD"),
+    startTls: true,
+  },
+
+  session: {
+    expires: "30d",
+  },
+}

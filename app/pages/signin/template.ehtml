@@ -1,0 +1,123 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Role } from "#app/shared/models";
+import { signin } from "#app/shared/services/auth";
+import { Logo } from "#app/shared/templates/layout";
+
+export interface DemoAccount {
+  email: string;
+  name: string;
+  role: Role;
+  departmentName: string | null;
+}
+
+export const DEMO_PASSWORD = "spendwick";
+
+interface SigninForm {
+  email: string;
+  password: string;
+  error: string;
+}
+
+function onSubmit(form: SigninForm) {
+  try {
+    signin(form.email, form.password);
+    form.error = "";
+    redirect("/requests");
+  } catch (err: any) {
+    form.error = err.message;
+  }
+}
+
+function onDemo(form: SigninForm, account: DemoAccount) {
+  form.email = account.email;
+  form.password = DEMO_PASSWORD;
+  onSubmit(form);
+}
+
+function groups(accounts: DemoAccount[]) {
+  return [
+    { id: "finance", title: "Finance", accounts: accounts.filter((a) => a.role === "finance") },
+    { id: "head", title: "Department heads", accounts: accounts.filter((a) => a.role === "head") },
+    { id: "employee", title: "Employees", accounts: accounts.filter((a) => a.role === "employee") },
+  ].filter((g) => g.accounts.length > 0);
+}
+
+<html lang="en" class="page-signin" (
+  accounts: DemoAccount[],
+  private form: SigninForm = {
+    email: "",
+    password: "",
+    error: "",
+  },
+)>
+  <head>
+    <title>Sign in · Spendwick</title>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <main class="signin-main">
+      <div class="page-shell signin-grid">
+        <form class="stack is-lg" onsubmit={() => onSubmit(form)}>
+          <div class="stack is-sm">
+            <span class="signin-brand row"><Logo /></span>
+            <h1>Sign in</h1>
+            <p class="signin-intro">Purchase requests and approvals for the whole company.</p>
+          </div>
+
+          <p e:if={form.error} class="error" role="alert">{form.error}</p>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email"
+                   name="email"
+                   type="email"
+                   value={form.email}
+                   autocomplete="email"
+                   autocapitalize="none"
+                   spellcheck={false}
+                   placeholder="you@company.com"
+                   required>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password"
+                   name="password"
+                   type="password"
+                   value={form.password}
+                   autocomplete="current-password"
+                   required>
+          </div>
+
+          <button type="submit" class="is-primary is-block">Sign in</button>
+        </form>
+
+        <section e:if={accounts.length > 0} class="stack is-lg" aria-labelledby="demo-title">
+          <div class="stack is-xs">
+            <h2 id="demo-title">Demo accounts</h2>
+            <p class="hint">Every account's password is <code>{DEMO_PASSWORD}</code>. Click one to sign in as that person.</p>
+          </div>
+
+          <div class="stack is-lg">
+            <div e:for={g of groups(accounts)} class="demo-group stack is-sm">
+              <h3>{g.title}</h3>
+              <ul class="demo-groups">
+                <li e:for={a of g.accounts.map((a) => ({ ...a, id: a.email }))}>
+                  <button type="button" class="demo-account row" onclick={() => onDemo(form, a)}>
+                    <span class="demo-account-name">
+                      {a.name}
+                      <span class="demo-account-email">{a.email}</span>
+                    </span>
+                    <span e:if={a.departmentName} class="pill">{a.departmentName}</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

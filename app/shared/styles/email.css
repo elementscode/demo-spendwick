@@ -1,0 +1,41 @@
+@import "@elements/style/email";
+@import "./vars.css";
+
+.email .summary {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+}
+
+.email .summary th,
+.email .summary td {
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e5e5;
+  text-align: left;
+  vertical-align: top;
+  font-size: 15px;
+}
+
+.email .summary th {
+  width: 120px;
+  color: #666666;
+  font-weight: 500;
+}
+
+.email .quote {
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 3px solid #d4d4d4;
+  background: #f7f7f7;
+  color: #333333;
+}
+
+.email .action {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 6px;
+  background: #1f5f99;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}

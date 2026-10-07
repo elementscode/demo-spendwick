@@ -1,0 +1,254 @@
+@import "#app/shared/styles/page.css";
+
+.page-head {
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.page-head h1,
+.page-head p {
+  margin: 0;
+}
+
+.page-head p {
+  color: var(--ink-soft);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+}
+
+.tile-label {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.tile-value {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+}
+
+.tile-note {
+  color: var(--ink-dim);
+  font-size: var(--text-xs);
+}
+
+.tile a {
+  font-size: var(--text-xs);
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.bars {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.bar-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.bar-track {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 0.875rem;
+  border-radius: var(--radius-xs);
+  background: var(--bg-muted);
+}
+
+.bar-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: 0 4px 4px 0;
+  transition: flex-basis 400ms ease;
+}
+
+.bar-fill.is-committed {
+  background: var(--accent);
+}
+
+.bar-fill.is-pending {
+  background: color-mix(in oklab, var(--accent) 35%, var(--bg-muted));
+}
+
+.bar-fill.is-over {
+  background: var(--danger);
+}
+
+.bar-limit {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+.bar-value {
+  min-width: 9rem;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.bar-value small {
+  display: block;
+  color: var(--ink-dim);
+  font-size: var(--text-xs);
+}
+
+.legend {
+  gap: var(--space-4);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+}
+
+.legend span {
+  gap: var(--space-2);
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 2px;
+}
+
+.swatch.is-committed {
+  background: var(--accent);
+}
+
+.swatch.is-pending {
+  background: color-mix(in oklab, var(--accent) 35%, var(--bg-muted));
+}
+
+.swatch.is-limit {
+  width: 2px;
+  height: 0.75rem;
+  background: var(--ink);
+}
+
+.filters {
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.filters select,
+.filters input {
+  width: auto;
+  min-width: 10rem;
+}
+
+.filters .grow {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.all-table {
+  width: 100%;
+}
+
+.all-table td {
+  vertical-align: top;
+}
+
+.all-table .num {
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.all-table .item a {
+  color: var(--ink);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+
+.all-table .item a:hover {
+  text-decoration: underline;
+}
+
+.all-table .sub {
+  display: block;
+  color: var(--ink-dim);
+  font-size: var(--text-xs);
+}
+
+.all-table .right {
+  text-align: right;
+}
+
+.table-foot {
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 64rem) {
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 40rem) {
+  .bar-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .bar-track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+
+  .all-table .hide-sm {
+    display: none;
+  }
+
+  .filters select,
+  .filters input {
+    flex: 1;
+    min-width: 8rem;
+  }
+}

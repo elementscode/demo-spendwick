@@ -1,0 +1,214 @@
+import "./style.css";
+import type { Listener } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import {
+  Budget,
+  CATEGORIES,
+  CurrentUser,
+  Department,
+  FINANCE_THRESHOLD_CENTS,
+  RequestForm,
+  money,
+  parseAmount,
+} from "#app/shared/models";
+import { fetchBudgets } from "#app/shared/services/departments";
+import { RequestChange, saveRequest } from "#app/shared/services/requests";
+import { Layout } from "#app/shared/templates/layout";
+import { BudgetBar } from "#app/shared/templates/request-ui";
+
+interface View {
+  form: RequestForm;
+  budgets: Budget[];
+  errors: Record<string, string[]>;
+  error: string;
+  busy: boolean;
+}
+
+interface RouteStep {
+  id: string;
+  n: number;
+  title: string;
+  who: string;
+}
+
+function onChange(view: View) {
+  view.budgets = fetchBudgets();
+}
+
+function onSave(view: View, submit: boolean) {
+  view.busy = true;
+  view.error = "";
+
+  try {
+    saveRequest(view.form, submit);
+  } catch (err: any) {
+    view.errors = err.errors ?? {};
+    view.error = err.errors ? "Fix the highlighted fields." : err.message;
+    view.busy = false;
+  }
+}
+
+function cents(view: View): number {
+  let n = parseAmount(view.form.amount);
+
+  return Number.isFinite(n) ? n : 0;
+}
+
+function route(user: CurrentUser, departments: Department[], view: View): RouteStep[] {
+  let dept = departments.find((d) => d.id === view.form.departmentId);
+  if (!dept) {
+    return [];
+  }
+
+  let skipHead = !dept.headId || dept.headId === user.id;
+  let steps: RouteStep[] = [];
+
+  if (!skipHead) {
+    steps.push({
+      id: "head",
+      n: 1,
+      title: "Department head",
+      who: `${dept.headName}, ${dept.name}`,
+    });
+  }
+
+  if (skipHead || cents(view) > FINANCE_THRESHOLD_CENTS) {
+    steps.push({
+      id: "finance",
+      n: steps.length + 1,
+      title: "Finance",
+      who: skipHead ? "Because you head this department" : "Because it is over $1,000",
+    });
+  }
+
+  return steps;
+}
+
+<FieldError (errors: Record<string, string[]>, name: string)>
+  <p e:if={errors[name]} class="error">{errors[name][0]}</p>
+</FieldError>
+
+<html lang="en" class="page-request-form" (
+  user: CurrentUser,
+  changes: Listener<RequestChange>,
+  departments: Department[],
+  initialBudgets: Budget[],
+  initial: RequestForm,
+  private view: View = {
+    form: initial,
+    budgets: initialBudgets,
+    errors: {},
+    error: "",
+    busy: false,
+  },
+) oninit={() => changes.on("notify", () => onChange(view))}>
+  <head>
+    <title>{initial.id ? "Edit draft" : "New request"} · Spendwick</title>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout {user} active={initial.id ? "requests" : "new"}>
+      <form class="stack is-xl" onsubmit={() => onSave(view, true)}>
+        <div class="form-head stack is-xs">
+          <a e:if={initial.id} class="back text-sm" href={`/requests/${initial.id}`}>← Back to the request</a>
+          <h1>{initial.id ? "Edit draft" : "New purchase request"}</h1>
+          <p>Save a draft to finish later, or submit it to start the approvals.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="card">
+            <div class="card-body stack is-lg">
+              <p e:if={view.error} class="callout is-danger" role="alert">{view.error}</p>
+
+              <div class="field">
+                <label for="item">What are you buying?</label>
+                <input id="item" value={view.form.item} class={[view.errors.item && "is-error"]} placeholder="Ergonomic chairs (x6)" required>
+                <FieldError errors={view.errors} name="item" />
+              </div>
+
+              <div class="form-pair">
+                <div class="field">
+                  <label for="vendor">Vendor</label>
+                  <input id="vendor" value={view.form.vendor} class={[view.errors.vendor && "is-error"]} placeholder="Fernhill Furniture" required>
+                  <FieldError errors={view.errors} name="vendor" />
+                </div>
+
+                <div class="field">
+                  <label for="amount">Amount (USD)</label>
+                  <div class="amount-input">
+                    <span>$</span>
+                    <input id="amount" inputmode="decimal" value={view.form.amount} class={[view.errors.amount && "is-error"]} placeholder="1,250.00" required>
+                  </div>
+                  <FieldError errors={view.errors} name="amount" />
+                </div>
+
+                <div class="field">
+                  <label for="department">Department</label>
+                  <select id="department" value={view.form.departmentId} class={[view.errors.departmentId && "is-error"]} required>
+                    <option value="" disabled>Pick a department</option>
+                    <option e:for={d of departments} value={d.id}>{d.name}</option>
+                  </select>
+                  <FieldError errors={view.errors} name="departmentId" />
+                </div>
+
+                <div class="field">
+                  <label for="category">Category</label>
+                  <select id="category" value={view.form.category} class={[view.errors.category && "is-error"]} required>
+                    <option value="" disabled>Pick a category</option>
+                    <option e:for={c of CATEGORIES.map((c) => ({ id: c, name: c }))} value={c.id}>{c.name}</option>
+                  </select>
+                  <FieldError errors={view.errors} name="category" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="reason">Why do you need it?</label>
+                <textarea id="reason" value={view.form.reason} placeholder="What it is for, and what happens if we do not buy it"></textarea>
+              </div>
+
+              <div class="field">
+                <label for="quote">Quote</label>
+                <input id="quote" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt" value={view.form.quote} class={[view.errors.quote && "is-error"]}>
+                <p e:if={view.form.quoteName && !view.form.quote} class="hint">Attached: {view.form.quoteName}. Choose a file to replace it.</p>
+                <p e:else class="hint">PDF, image or text, up to 10 MB.</p>
+                <FieldError errors={view.errors} name="quote" />
+              </div>
+            </div>
+            <div class="card-foot">
+              <button type="button" class="is-ghost" disabled={view.busy} onclick={() => onSave(view, false)}>Save draft</button>
+              <button type="submit" class="is-primary" disabled={view.busy}>Submit for approval</button>
+            </div>
+          </div>
+
+          <div class="form-side stack is-lg">
+            <div class="card">
+              <div class="card-head">
+                <h2>Approval route</h2>
+              </div>
+              <div class="card-body">
+                <ol e:if={route(user, departments, view).length > 0} class="route-list">
+                  <li e:for={s of route(user, departments, view)}>
+                    <span class="route-num">{s.n}</span>
+                    <span>
+                      <strong>{s.title}</strong><br>
+                      <span class="route-who">{s.who}</span>
+                    </span>
+                  </li>
+                </ol>
+                <p e:else class="hint">Pick a department to see who approves this.</p>
+              </div>
+            </div>
+
+            <div e:if={view.budgets.find((b) => b.departmentId === view.form.departmentId)} class="card">
+              <div class="card-body">
+                <BudgetBar budget={view.budgets.find((b) => b.departmentId === view.form.departmentId)!}
+                           amountCents={cents(view)}
+                           status="draft" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </Layout>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+import "./style.css";
+import { Budget, Status, Step, money, statusIntent, statusLabel } from "#app/shared/models";
+
+function pct(part: number, whole: number): string {
+  return `${Math.max(0, (part / Math.max(whole, 1)) * 100)}%`;
+}
+
+<StatusPill (state: Status)>
+  <span class={["pill", statusIntent(state)]}>
+    <span class="pill-dot"></span>
+    {statusLabel(state)}
+  </span>
+</StatusPill>
+
+<StatusCell (
+  state: Status,
+  pendingStep: Step | null,
+)>
+  <span class="status-cell stack">
+    <StatusPill state={state} />
+    <span e:if={state === "submitted" && pendingStep} class="status-waiting">
+      waiting on {pendingStep === "head" ? "head" : "finance"}
+    </span>
+  </span>
+</StatusCell>
+
+<!--
+  A department's budget for one quarter. Pass the request being looked at, and
+  its amount shows as its own segment when it is not yet committed.
+-->
+<BudgetBar (
+  budget: Budget,
+  title: string = `${budget.departmentName} budget`,
+  amountCents: number = 0,
+  status: Status | null = null,
+  private open: boolean = status === "draft" || status === "submitted",
+  private thisCents: number = open ? amountCents : 0,
+  private pendingCents: number = Math.max(0, budget.pendingCents - (status === "submitted" ? amountCents : 0)),
+  private scale: number = Math.max(budget.budgetCents, budget.committedCents + pendingCents + thisCents),
+  private over: boolean = budget.committedCents + thisCents > budget.budgetCents,
+)>
+  <div class={["budget", over && "is-over"]}>
+    <div class="budget-head row">
+      <h3 class="budget-title">{title}</h3>
+      <span class="budget-quarter">{budget.quarter} · {money(budget.budgetCents)}</span>
+    </div>
+
+    <div class="budget-bar" role="img" aria-label={`${money(budget.committedCents)} committed of ${money(budget.budgetCents)}`}>
+      <span class="budget-seg is-committed" style={{ "flex-basis": pct(budget.committedCents, scale) }}></span>
+      <span e:if={thisCents > 0} class="budget-seg is-this" style={{ "flex-basis": pct(thisCents, scale) }}></span>
+      <span class="budget-seg is-pending" style={{ "flex-basis": pct(pendingCents, scale) }}></span>
+    </div>
+
+    <dl class="budget-legend">
+      <div>
+        <dt class="row"><span class="swatch is-committed"></span>Committed</dt>
+        <dd>{money(budget.committedCents)}</dd>
+      </div>
+      <div e:if={thisCents > 0}>
+        <dt class="row"><span class="swatch is-this"></span>This request</dt>
+        <dd>{money(thisCents)}</dd>
+      </div>
+      <div>
+        <dt class="row"><span class="swatch is-pending"></span>{thisCents > 0 ? "Other pending" : "Pending"}</dt>
+        <dd>{money(pendingCents)}</dd>
+      </div>
+      <div>
+        <dt class="row"><span class="swatch"></span>{thisCents > 0 ? "Left after this" : "Remaining"}</dt>
+        <dd class={[budget.remainingCents - thisCents < 0 && "is-negative"]}>{money(budget.remainingCents - thisCents)}</dd>
+      </div>
+    </dl>
+
+    <div e:if={over && thisCents > 0} class="callout is-danger" role="alert">
+      <div class="callout-title">Over budget</div>
+      <div class="callout-body">
+        Approving this puts {budget.departmentName} {money(budget.committedCents + thisCents - budget.budgetCents)} over its {budget.quarter} budget.
+      </div>
+    </div>
+    <div e:elseif={over} class="callout is-danger" role="alert">
+      <div class="callout-body">{budget.departmentName} is {money(budget.committedCents - budget.budgetCents)} over its {budget.quarter} budget.</div>
+    </div>
+    <div e:elseif={budget.committedCents + pendingCents + thisCents > budget.budgetCents} class="callout is-warning">
+      <div class="callout-body">
+        If every pending request is approved, {budget.departmentName} goes {money(budget.committedCents + pendingCents + thisCents - budget.budgetCents)} over budget.
+      </div>
+    </div>
+  </div>
+</BudgetBar>

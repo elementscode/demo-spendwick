@@ -1,0 +1,57 @@
+import "./style.css";
+import { money, requestNumber, stepLabel, Step } from "#app/shared/models";
+
+export interface EmailRequest {
+  id: string;
+  number: number;
+  item: string;
+  vendor: string;
+  amountCents: number;
+  category: string;
+  reason: string;
+  departmentName: string;
+  requesterName: string;
+  requesterEmail: string;
+}
+
+<RequestSummary (request: EmailRequest)>
+  <table class="summary">
+    <tr><th>Request</th><td>{requestNumber(request.number)}</td></tr>
+    <tr><th>Item</th><td>{request.item}</td></tr>
+    <tr><th>Vendor</th><td>{request.vendor}</td></tr>
+    <tr><th>Amount</th><td>{money(request.amountCents)}</td></tr>
+    <tr><th>Department</th><td>{request.departmentName}</td></tr>
+    <tr><th>Category</th><td>{request.category}</td></tr>
+    <tr><th>Requested by</th><td>{request.requesterName}</td></tr>
+  </table>
+</RequestSummary>
+
+/**
+ * Sent to whoever the request is now waiting on.
+ *
+ * @email
+ */
+<html (
+  request: EmailRequest,
+  step: Step,
+)>
+  <body class="email needs-approval">
+    <div class="email-wrap">
+      <h1>{requestNumber(request.number)} needs your approval</h1>
+      <p>
+        {request.requesterName} asked to buy {request.item} from {request.vendor}.
+        It is waiting on the {stepLabel(step).toLowerCase()} approval.
+      </p>
+
+      <RequestSummary {request} />
+
+      <p e:if={request.reason} class="quote">{request.reason}</p>
+
+      <p><a class="action" href={`/requests/${request.id}`}>Review the request</a></p>
+
+      <div class="email-footer">
+        <p>Spendwick purchase approvals</p>
+      </div>
+    </div>
+  </body>
+</html>

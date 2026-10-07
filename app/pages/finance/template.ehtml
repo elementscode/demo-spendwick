@@ -1,0 +1,241 @@
+import "./style.css";
+import type { Listener } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import {
+  CurrentUser,
+  Department,
+  RequestRow,
+  STATUSES,
+  SpendRow,
+  money,
+  quarterStart,
+  requestNumber,
+  shortDate,
+  statusLabel,
+} from "#app/shared/models";
+import { FinancePage, fetchFinancePage } from "#app/shared/services/finance";
+import { RequestChange } from "#app/shared/services/requests";
+import { Layout } from "#app/shared/templates/layout";
+import { StatusCell } from "#app/shared/templates/request-ui";
+
+interface Filters {
+  status: string;
+  department: string;
+  range: "quarter" | "all";
+  search: string;
+}
+
+interface View {
+  page: FinancePage;
+  filters: Filters;
+}
+
+const STATUS_OPTIONS = STATUSES.filter((s) => s !== "draft").map((s) => ({
+  id: s,
+  label: statusLabel(s),
+}));
+
+function onChange(view: View) {
+  view.page = fetchFinancePage();
+}
+
+function filtered(view: View): RequestRow[] {
+  let f = view.filters;
+  let start = quarterStart(new Date());
+  let q = f.search.trim().toLowerCase();
+
+  return view.page.rows.filter((r) =>
+    r.status !== "draft"
+    && (!f.status || r.status === f.status)
+    && (!f.department || r.departmentId === f.department)
+    && (f.range === "all" || (r.submittedAt && r.submittedAt >= start))
+    && (!q || `${r.item} ${r.vendor} ${r.requesterName} ${requestNumber(r.number)}`.toLowerCase().includes(q)));
+}
+
+function exportUrl(f: Filters): string {
+  let p = new URLSearchParams({
+    status: f.status,
+    department: f.department,
+    range: f.range,
+  });
+
+  return `/finance/export.csv?${p}`;
+}
+
+function pct(part: number, whole: number): string {
+  return `${Math.max(0, (part / Math.max(whole, 1)) * 100)}%`;
+}
+
+function scaleOf(rows: SpendRow[]): number {
+  return Math.max(1, ...rows.map((r) => Math.max(r.budgetCents, r.committedCents + r.pendingCents)));
+}
+
+<SpendBars (
+  rows: SpendRow[],
+  showBudget: boolean,
+  private scale: number = scaleOf(rows),
+)>
+  <ul class="bars">
+    <li e:for={r of rows.map((r) => ({ ...r, id: r.label }))}
+        class="bar-row"
+        title={`${r.label}: ${money(r.committedCents)} committed, ${money(r.pendingCents)} pending${showBudget ? ` of ${money(r.budgetCents)}` : ""}`}>
+      <span class="bar-label">{r.label}</span>
+      <span class="bar-track">
+        <span class={["bar-fill", "is-committed", showBudget && r.committedCents > r.budgetCents && "is-over"]} style={{ "flex-basis": pct(r.committedCents, scale) }}></span>
+        <span class="bar-fill is-pending" style={{ "flex-basis": pct(r.pendingCents, scale) }}></span>
+        <span e:if={showBudget} class="bar-limit" style={{ left: `calc(${pct(r.budgetCents, scale)} - 1px)` }}></span>
+      </span>
+      <span class="bar-value">
+        {money(r.committedCents)}
+        <small e:if={showBudget}>of {money(r.budgetCents)} · {money(r.budgetCents - r.committedCents)} left</small>
+        <small e:else>{money(r.pendingCents)} pending</small>
+      </span>
+    </li>
+  </ul>
+</SpendBars>
+
+<html lang="en" class="page-finance" (
+  user: CurrentUser,
+  changes: Listener<RequestChange>,
+  departments: Department[],
+  initial: FinancePage,
+  private view: View = {
+    page: initial,
+    filters: {
+      status: "",
+      department: "",
+      range: "quarter",
+      search: "",
+    },
+  },
+) oninit={() => changes.on("notify", () => onChange(view))}>
+  <head>
+    <title>Finance · Spendwick</title>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout {user} active="finance">
+      <div class="stack is-xl">
+        <div class="page-head row">
+          <div class="stack is-xs">
+            <h1>Finance</h1>
+            <p>Spend across every department for {view.page.summary.quarter}. Updates as requests are decided.</p>
+          </div>
+          <a class="button" href={exportUrl(view.filters)} download>Export CSV</a>
+        </div>
+
+        <div class="tiles">
+          <div class="card tile">
+            <span class="tile-label">Quarterly budget</span>
+            <span class="tile-value">{money(view.page.summary.totalBudgetCents)}</span>
+            <span class="tile-note">{view.page.summary.byDepartment.length} departments</span>
+          </div>
+          <div class="card tile">
+            <span class="tile-label">Committed</span>
+            <span class="tile-value">{money(view.page.summary.totalCommittedCents)}</span>
+            <span class="tile-note">Approved, ordered and received</span>
+          </div>
+          <div class="card tile">
+            <span class="tile-label">Remaining</span>
+            <span class="tile-value">{money(view.page.summary.totalBudgetCents - view.page.summary.totalCommittedCents)}</span>
+            <span class="tile-note">{money(view.page.summary.totalPendingCents)} more is pending</span>
+          </div>
+          <div class="card tile">
+            <span class="tile-label">Waiting on finance</span>
+            <span class="tile-value">{view.page.summary.awaitingFinance}</span>
+            <a e:if={view.page.summary.awaitingFinance > 0} href="/requests">Review them</a>
+            <span e:else class="tile-note">All caught up</span>
+          </div>
+        </div>
+
+        <div class="charts">
+          <div class="card">
+            <div class="card-head">
+              <h2>Spend by department</h2>
+            </div>
+            <div class="card-body stack is-lg">
+              <SpendBars rows={view.page.summary.byDepartment} showBudget={true} />
+              <div class="legend cluster">
+                <span class="row"><span class="swatch is-committed"></span>Committed</span>
+                <span class="row"><span class="swatch is-pending"></span>Pending</span>
+                <span class="row"><span class="swatch is-limit"></span>Quarterly budget</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Spend by category</h2>
+            </div>
+            <div class="card-body stack is-lg">
+              <SpendBars e:if={view.page.summary.byCategory.length > 0} rows={view.page.summary.byCategory} showBudget={false} />
+              <p e:else class="hint">No spend this quarter yet.</p>
+              <div class="legend cluster">
+                <span class="row"><span class="swatch is-committed"></span>Committed</span>
+                <span class="row"><span class="swatch is-pending"></span>Pending</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>All requests</h2>
+          </div>
+
+          <div class="filters cluster">
+            <input class="grow" type="search" value={view.filters.search} placeholder="Search item, vendor, person" aria-label="Search">
+            <select value={view.filters.status} aria-label="Status">
+              <option value="">Any status</option>
+              <option e:for={s of STATUS_OPTIONS} value={s.id}>{s.label}</option>
+            </select>
+            <select value={view.filters.department} aria-label="Department">
+              <option value="">All departments</option>
+              <option e:for={d of departments} value={d.id}>{d.name}</option>
+            </select>
+            <select value={view.filters.range} aria-label="Period">
+              <option value="quarter">This quarter</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+
+          <div e:if={filtered(view).length > 0} class="table-wrap">
+            <table class="all-table">
+              <thead>
+                <tr>
+                  <th class="hide-sm">#</th>
+                  <th>Item</th>
+                  <th class="hide-sm">Requested by</th>
+                  <th class="hide-sm">Category</th>
+                  <th class="right">Amount</th>
+                  <th>Status</th>
+                  <th class="hide-sm">Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr e:for={r of filtered(view)}>
+                  <td class="num hide-sm">{requestNumber(r.number)}</td>
+                  <td class="item">
+                    <a href={`/requests/${r.id}`}>{r.item}</a>
+                    <span class="sub">{r.vendor} · {r.departmentName}</span>
+                  </td>
+                  <td class="hide-sm">{r.requesterName}</td>
+                  <td class="hide-sm">{r.category}</td>
+                  <td class="right amount">{money(r.amountCents)}</td>
+                  <td><StatusCell state={r.status} pendingStep={r.pendingStep} /></td>
+                  <td class="hide-sm sub">{r.submittedAt ? shortDate(r.submittedAt) : ""}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div e:else class="card-body hint">No requests match these filters.</div>
+
+          <div class="table-foot row">
+            <span>{filtered(view).length} requests</span>
+            <span>{money(filtered(view).reduce((n, r) => n + r.amountCents, 0))} total</span>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

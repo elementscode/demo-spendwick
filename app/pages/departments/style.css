@@ -1,0 +1,55 @@
+@import "#app/shared/styles/page.css";
+
+.page-head h1,
+.page-head p {
+  margin: 0;
+}
+
+.page-head p {
+  color: var(--ink-soft);
+}
+
+.dept-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+  gap: var(--space-5);
+}
+
+.dept-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dept-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.dept-fields .is-full {
+  grid-column: 1 / -1;
+}
+
+.dept-saved {
+  color: var(--success);
+  font-size: var(--text-sm);
+}
+
+.card-foot {
+  align-items: center;
+}
+
+@media (max-width: 30rem) {
+  .dept-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dept-list > form.card {
+  display: block;
+  align-self: start;
+}
+
+.dept-list > * {
+  margin: 0;
+}

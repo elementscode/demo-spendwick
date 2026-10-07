@@ -1,0 +1,364 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import type { Listener } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import {
+  Approval,
+  CurrentUser,
+  RequestDetail,
+  RequestEvent,
+  dateTime,
+  fileSize,
+  money,
+  requestNumber,
+  stepLabel,
+  FINANCE_THRESHOLD_CENTS,
+} from "#app/shared/models";
+import { RequestChange, advance, comment, decide, fetchDetail, submitRequest } from "#app/shared/services/requests";
+import { Layout } from "#app/shared/templates/layout";
+import { BudgetBar, StatusPill } from "#app/shared/templates/request-ui";
+
+interface View {
+  detail: RequestDetail;
+  note: string;
+  reply: string;
+  error: string;
+  busy: boolean;
+}
+
+function message(err: any, field: string): string {
+  return err?.errors?.[field]?.[0] ?? err?.message ?? "something went wrong";
+}
+
+function onChange(view: View) {
+  try {
+    view.detail = fetchDetail(view.detail.id);
+  } catch (err: any) {
+    redirect("/requests");
+  }
+}
+
+function begin(view: View) {
+  view.busy = true;
+  view.error = "";
+}
+
+function done(view: View, detail: RequestDetail) {
+  view.detail = detail;
+  view.note = "";
+  view.reply = "";
+  view.busy = false;
+}
+
+function fail(view: View, err: any, field: string) {
+  view.error = message(err, field);
+  view.busy = false;
+}
+
+function onDecide(view: View, decision: "approved" | "rejected") {
+  begin(view);
+
+  try {
+    done(view, decide(view.detail.id, decision, view.note));
+  } catch (err: any) {
+    fail(view, err, "comment");
+  }
+}
+
+function onSubmit(view: View) {
+  begin(view);
+
+  try {
+    done(view, submitRequest(view.detail.id));
+  } catch (err: any) {
+    fail(view, err, "");
+  }
+}
+
+function onAdvance(view: View, to: "ordered" | "received") {
+  begin(view);
+
+  try {
+    done(view, advance(view.detail.id, to, view.note));
+  } catch (err: any) {
+    fail(view, err, "comment");
+  }
+}
+
+function onComment(view: View) {
+  begin(view);
+
+  try {
+    done(view, comment(view.detail.id, view.reply));
+  } catch (err: any) {
+    fail(view, err, "comment");
+  }
+}
+
+function eventText(e: RequestEvent): string {
+  let who = e.actorName ?? "Someone";
+
+  switch (e.action) {
+    case "created":
+      return `${who} created the request`;
+
+    case "edited":
+      return `${who} edited the draft`;
+
+    case "submitted":
+      return `${who} submitted it for approval`;
+
+    case "approved":
+      return `${who} approved it${e.step ? ` as ${e.step === "head" ? "department head" : "finance"}` : ""}`;
+
+    case "rejected":
+      return `${who} rejected it${e.step ? ` as ${e.step === "head" ? "department head" : "finance"}` : ""}`;
+
+    case "ordered":
+      return `${who} placed the order`;
+
+    case "received":
+      return `${who} marked it received`;
+
+    case "commented":
+      return `${who} commented`;
+  }
+}
+
+function stepWho(a: Approval, detail: RequestDetail): string {
+  if (a.status === "approved" || a.status === "rejected") {
+    return `${a.approverName ?? "Unknown"} ${a.status}`;
+  }
+
+  if (a.step === "head") {
+    return a.approverName ? `${a.approverName}, head of ${detail.departmentName}` : "No head assigned";
+  }
+
+  return "Any finance approver";
+}
+
+function stepState(a: Approval): string {
+  switch (a.status) {
+    case "waiting":
+      return "Not yet";
+
+    case "pending":
+      return "Waiting for a decision";
+
+    case "approved":
+      return "Approved";
+
+    case "rejected":
+      return "Rejected";
+
+    case "skipped":
+      return "Skipped";
+  }
+}
+
+<StepIcon (state: string)>
+  <svg e:if={state === "approved"} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <svg e:elseif={state === "rejected"} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </svg>
+  <svg e:elseif={state === "pending"} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="3" fill="currentColor"/>
+  </svg>
+  <svg e:else width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.5"/>
+  </svg>
+</StepIcon>
+
+<html lang="en" class="page-request" (
+  user: CurrentUser,
+  changes: Listener<RequestChange>,
+  initial: RequestDetail,
+  private view: View = {
+    detail: initial,
+    note: "",
+    reply: "",
+    error: "",
+    busy: false,
+  },
+) oninit={() => changes.on("notify", () => onChange(view))}>
+  <head>
+    <title>{requestNumber(view.detail.number)} {view.detail.item} · Spendwick</title>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout {user} active="requests">
+      <div class="stack is-xl">
+        <div class="stack is-md">
+          <a class="back" href="/requests">← All requests</a>
+
+          <div class="req-head row">
+            <div class="stack is-sm">
+              <div class="cluster is-sm">
+                <span class="req-number">{requestNumber(view.detail.number)}</span>
+                <StatusPill state={view.detail.status} />
+                <span class="live row" title="This page updates as soon as anything changes">
+                  <span class="pill-dot"></span>Live
+                </span>
+              </div>
+              <h1>{view.detail.item}</h1>
+              <p class="req-meta">
+                {view.detail.vendor} · {view.detail.departmentName} · requested by {view.detail.requesterName}
+              </p>
+            </div>
+
+            <div class="req-amount">
+              <span class="req-amount-value">{money(view.detail.amountCents)}</span>
+              <span class="req-amount-note">
+                {view.detail.amountCents > FINANCE_THRESHOLD_CENTS ? "Over $1,000: needs head and finance" : "Needs the department head"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="req-grid">
+          <div class="stack is-lg">
+            <p e:if={view.error} class="callout is-danger" role="alert">{view.error}</p>
+
+            <div e:if={view.detail.can.decide} class="card decide">
+              <div class="card-head">
+                <h2>Your decision</h2>
+              </div>
+              <div class="card-body stack is-md">
+                <p class="hint">
+                  You are the {view.detail.approvals.find((a) => a.status === "pending")?.step === "finance" ? "finance" : "department head"} approver.
+                  The requester is emailed either way.
+                </p>
+                <div class="field">
+                  <label for="note">Comment</label>
+                  <textarea id="note" value={view.note} placeholder="Optional when approving, required when rejecting"></textarea>
+                </div>
+              </div>
+              <div class="card-foot">
+                <button class="is-danger" disabled={view.busy} onclick={() => onDecide(view, "rejected")}>Reject</button>
+                <button class="is-primary" disabled={view.busy} onclick={() => onDecide(view, "approved")}>Approve</button>
+              </div>
+            </div>
+
+            <div e:if={view.detail.can.submit} class="callout is-accent">
+              <div class="callout-title">This is a draft</div>
+              <div class="callout-body stack is-sm">
+                <p>Nobody else can see it yet. Submit it to send it to {view.detail.approvals[0]?.status === "skipped" ? "finance" : view.detail.approvals[0]?.approverName ?? "the department head"}.</p>
+                <div class="cluster is-sm">
+                  <button class="is-primary" disabled={view.busy} onclick={() => onSubmit(view)}>Submit for approval</button>
+                  <a class="button is-ghost" href={`/requests/${view.detail.id}/edit`}>Edit draft</a>
+                </div>
+              </div>
+            </div>
+
+            <div e:if={view.detail.can.order || view.detail.can.receive} class="card">
+              <div class="card-head">
+                <h2>{view.detail.can.order ? "Place the order" : "Confirm delivery"}</h2>
+              </div>
+              <div class="card-body">
+                <div class="field">
+                  <label for="advance-note">Note</label>
+                  <input id="advance-note" value={view.note} placeholder={view.detail.can.order ? "PO number, expected delivery" : "Anything missing or damaged?"}>
+                </div>
+              </div>
+              <div class="card-foot">
+                <button e:if={view.detail.can.order} class="is-primary" disabled={view.busy} onclick={() => onAdvance(view, "ordered")}>Mark ordered</button>
+                <button e:if={view.detail.can.receive} class="is-primary" disabled={view.busy} onclick={() => onAdvance(view, "received")}>Mark received</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>Details</h2>
+              </div>
+              <div class="card-body stack is-lg">
+                <dl class="facts">
+                  <div><dt>Vendor</dt><dd>{view.detail.vendor}</dd></div>
+                  <div><dt>Category</dt><dd>{view.detail.category}</dd></div>
+                  <div><dt>Department</dt><dd>{view.detail.departmentName}</dd></div>
+                  <div><dt>Submitted</dt><dd>{view.detail.submittedAt ? dateTime(view.detail.submittedAt) : "Not yet"}</dd></div>
+                </dl>
+
+                <div class="stack is-xs">
+                  <h3 class="text-sm">Reason</h3>
+                  <p class="reason">{view.detail.reason || "No reason given."}</p>
+                </div>
+
+                <a e:if={view.detail.quoteName} class="quote-link row" href={`/requests/${view.detail.id}/quote`} target="_blank" rel="noopener">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M5 2.5h6.5L15 6v11.5H5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M11 2.5V6.5h4M7.5 10h5M7.5 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                  <span class="stack is-xs">
+                    <span>{view.detail.quoteName}</span>
+                    <span class="quote-size">Attached quote · {fileSize(view.detail.quoteSize ?? 0)}</span>
+                  </span>
+                </a>
+                <p e:else class="hint">No quote attached.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h2>History</h2>
+              </div>
+              <div class="card-body stack is-lg">
+                <ol class="history">
+                  <li e:for={e of view.detail.events}>
+                    <span class="history-what row">
+                      <span>{eventText(e)}</span>
+                      <span e:if={e.fromStatus && e.toStatus} class="row is-baseline history-what">
+                        <StatusPill state={e.fromStatus!} />
+                        <span class="arrow">→</span>
+                        <StatusPill state={e.toStatus!} />
+                      </span>
+                      <span e:elseif={e.toStatus} class="row history-what"><StatusPill state={e.toStatus!} /></span>
+                    </span>
+                    <span class="history-when">{dateTime(e.createdAt)}</span>
+                    <p e:if={e.comment} class="history-comment">{e.comment}</p>
+                  </li>
+                </ol>
+
+                <form e:if={view.detail.can.comment} class="stack is-sm" onsubmit={() => onComment(view)}>
+                  <label for="reply" class="text-sm">Add a comment</label>
+                  <textarea id="reply" value={view.reply} placeholder="Ask a question or add context"></textarea>
+                  <div class="row comment-actions">
+                    <button type="submit" disabled={view.busy || !view.reply.trim()}>Comment</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack is-lg">
+            <div class="card">
+              <div class="card-head">
+                <h2>Approval chain</h2>
+              </div>
+              <div class="card-body">
+                <ol class="chain">
+                  <li e:for={a of view.detail.approvals} class={["chain-step", `is-${a.status}`]}>
+                    <span class="chain-dot"><StepIcon state={a.status} /></span>
+                    <div>
+                      <div class="chain-title">{stepLabel(a.step)}</div>
+                      <div class="chain-who">{stepWho(a, view.detail)}</div>
+                      <div class="chain-when">{a.decidedAt ? dateTime(a.decidedAt) : stepState(a)}</div>
+                      <p e:if={a.comment} class="chain-note">{a.comment}</p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-body">
+                <BudgetBar budget={view.detail.budget} amountCents={view.detail.amountCents} status={view.detail.status} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

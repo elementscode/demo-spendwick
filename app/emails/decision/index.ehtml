@@ -1,0 +1,45 @@
+import "./style.css";
+import { money, requestNumber, stepLabel, Step } from "#app/shared/models";
+import { EmailRequest, RequestSummary } from "#app/emails/needs-approval";
+
+/**
+ * Sent to the requester after each approval decision.
+ *
+ * @email
+ */
+<html (
+  request: EmailRequest,
+  step: Step,
+  decision: "approved" | "rejected",
+  approverName: string,
+  comment: string,
+  final: boolean,
+)>
+  <body class="email decision">
+    <div class="email-wrap">
+      <h1 e:if={decision === "rejected"}>{requestNumber(request.number)} was rejected</h1>
+      <h1 e:elseif={final}>{requestNumber(request.number)} is approved</h1>
+      <h1 e:else>{requestNumber(request.number)} passed {stepLabel(step).toLowerCase()} approval</h1>
+
+      <p e:if={decision === "rejected"}>
+        {approverName} rejected your request for {request.item} ({money(request.amountCents)}).
+      </p>
+      <p e:elseif={final}>
+        {approverName} approved your request for {request.item} ({money(request.amountCents)}). Finance will place the order.
+      </p>
+      <p e:else>
+        {approverName} approved your request for {request.item} ({money(request.amountCents)}). It is over $1,000, so it now goes to finance.
+      </p>
+
+      <p e:if={comment} class="quote">{comment}</p>
+
+      <RequestSummary {request} />
+
+      <p><a class="action" href={`/requests/${request.id}`}>View the request</a></p>
+
+      <div class="email-footer">
+        <p>Spendwick purchase approvals</p>
+      </div>
+    </div>
+  </body>
+</html>
