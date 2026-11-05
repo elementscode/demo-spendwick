@@ -188,10 +188,6 @@
   font-size: var(--text-sm);
 }
 
-.decide textarea {
-  min-height: 5rem;
-}
-
 .history {
   margin: 0;
   padding: 0;

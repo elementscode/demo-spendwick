@@ -1,4 +1,10 @@
 import "./style.css";
+import { Alert, AlertDescription, AlertTitle } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent, CardFooter } from "@elements/ui/card";
+import { Field } from "@elements/ui/field";
+import { Input } from "@elements/ui/input";
+import { Textarea } from "@elements/ui/textarea";
 import { redirect } from "@elements/app";
 import type { Listener } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
@@ -23,7 +29,7 @@ interface View {
   note: string;
   reply: string;
   error: string;
-  busy: boolean;
+  busy: string;
 }
 
 function message(err: any, field: string): string {
@@ -38,8 +44,8 @@ function onChange(view: View) {
   }
 }
 
-function begin(view: View) {
-  view.busy = true;
+function begin(view: View, action: string) {
+  view.busy = action;
   view.error = "";
 }
 
@@ -47,16 +53,16 @@ function done(view: View, detail: RequestDetail) {
   view.detail = detail;
   view.note = "";
   view.reply = "";
-  view.busy = false;
+  view.busy = "";
 }
 
 function fail(view: View, err: any, field: string) {
   view.error = message(err, field);
-  view.busy = false;
+  view.busy = "";
 }
 
 function onDecide(view: View, decision: "approved" | "rejected") {
-  begin(view);
+  begin(view, decision);
 
   try {
     done(view, decide(view.detail.id, decision, view.note));
@@ -66,7 +72,7 @@ function onDecide(view: View, decision: "approved" | "rejected") {
 }
 
 function onSubmit(view: View) {
-  begin(view);
+  begin(view, "submit");
 
   try {
     done(view, submitRequest(view.detail.id));
@@ -76,7 +82,7 @@ function onSubmit(view: View) {
 }
 
 function onAdvance(view: View, to: "ordered" | "received") {
-  begin(view);
+  begin(view, to);
 
   try {
     done(view, advance(view.detail.id, to, view.note));
@@ -86,13 +92,17 @@ function onAdvance(view: View, to: "ordered" | "received") {
 }
 
 function onComment(view: View) {
-  begin(view);
+  begin(view, "comment");
 
   try {
     done(view, comment(view.detail.id, view.reply));
   } catch (err: any) {
     fail(view, err, "comment");
   }
+}
+
+function waiting(view: View, action: string): boolean {
+  return view.busy !== "" && view.busy !== action;
 }
 
 function eventText(e: RequestEvent): string {
@@ -180,7 +190,7 @@ function stepState(a: Approval): string {
     note: "",
     reply: "",
     error: "",
-    busy: false,
+    busy: "",
   },
 ) oninit={() => changes.on("notify", () => onChange(view))}>
   <head>
@@ -219,60 +229,49 @@ function stepState(a: Approval): string {
 
         <div class="req-grid">
           <div class="stack is-lg">
-            <p e:if={view.error} class="callout is-danger" role="alert">{view.error}</p>
+            <Alert e:if={view.error} variant="danger">{view.error}</Alert>
 
-            <div e:if={view.detail.can.decide} class="card decide">
-              <div class="card-head">
-                <h2>Your decision</h2>
-              </div>
-              <div class="card-body stack is-md">
+            <Card e:if={view.detail.can.decide} title="Your decision" level={2} class="decide">
+              <CardContent class="stack is-md">
                 <p class="hint">
                   You are the {view.detail.approvals.find((a) => a.status === "pending")?.step === "finance" ? "finance" : "department head"} approver.
                   The requester is emailed either way.
                 </p>
-                <div class="field">
-                  <label for="note">Comment</label>
-                  <textarea id="note" value={view.note} placeholder="Optional when approving, required when rejecting"></textarea>
-                </div>
-              </div>
-              <div class="card-foot">
-                <button class="is-danger" disabled={view.busy} onclick={() => onDecide(view, "rejected")}>Reject</button>
-                <button class="is-primary" disabled={view.busy} onclick={() => onDecide(view, "approved")}>Approve</button>
-              </div>
-            </div>
+                <Field label="Comment">
+                  <Textarea value={view.note} placeholder="Optional when approving, required when rejecting" />
+                </Field>
+              </CardContent>
+              <CardFooter>
+                <Button variant="danger" disabled={waiting(view, "rejected")} loading={view.busy === "rejected"} onclick={() => onDecide(view, "rejected")}>Reject</Button>
+                <Button variant="primary" disabled={waiting(view, "approved")} loading={view.busy === "approved"} onclick={() => onDecide(view, "approved")}>Approve</Button>
+              </CardFooter>
+            </Card>
 
-            <div e:if={view.detail.can.submit} class="callout is-accent">
-              <div class="callout-title">This is a draft</div>
-              <div class="callout-body stack is-sm">
+            <Alert e:if={view.detail.can.submit} variant="accent" role="none">
+              <AlertTitle>This is a draft</AlertTitle>
+              <AlertDescription class="stack is-sm">
                 <p>Nobody else can see it yet. Submit it to send it to {view.detail.approvals[0]?.status === "skipped" ? "finance" : view.detail.approvals[0]?.approverName ?? "the department head"}.</p>
                 <div class="cluster is-sm">
-                  <button class="is-primary" disabled={view.busy} onclick={() => onSubmit(view)}>Submit for approval</button>
-                  <a class="button is-ghost" href={`/requests/${view.detail.id}/edit`}>Edit draft</a>
+                  <Button variant="primary" disabled={waiting(view, "submit")} loading={view.busy === "submit"} onclick={() => onSubmit(view)}>Submit for approval</Button>
+                  <Button variant="ghost" href={`/requests/${view.detail.id}/edit`}>Edit draft</Button>
                 </div>
-              </div>
-            </div>
+              </AlertDescription>
+            </Alert>
 
-            <div e:if={view.detail.can.order || view.detail.can.receive} class="card">
-              <div class="card-head">
-                <h2>{view.detail.can.order ? "Place the order" : "Confirm delivery"}</h2>
-              </div>
-              <div class="card-body">
-                <div class="field">
-                  <label for="advance-note">Note</label>
-                  <input id="advance-note" value={view.note} placeholder={view.detail.can.order ? "PO number, expected delivery" : "Anything missing or damaged?"}>
-                </div>
-              </div>
-              <div class="card-foot">
-                <button e:if={view.detail.can.order} class="is-primary" disabled={view.busy} onclick={() => onAdvance(view, "ordered")}>Mark ordered</button>
-                <button e:if={view.detail.can.receive} class="is-primary" disabled={view.busy} onclick={() => onAdvance(view, "received")}>Mark received</button>
-              </div>
-            </div>
+            <Card e:if={view.detail.can.order || view.detail.can.receive} title={view.detail.can.order ? "Place the order" : "Confirm delivery"} level={2}>
+              <CardContent>
+                <Field label="Note">
+                  <Input value={view.note} placeholder={view.detail.can.order ? "PO number, expected delivery" : "Anything missing or damaged?"} />
+                </Field>
+              </CardContent>
+              <CardFooter>
+                <Button e:if={view.detail.can.order} variant="primary" disabled={waiting(view, "ordered")} loading={view.busy === "ordered"} onclick={() => onAdvance(view, "ordered")}>Mark ordered</Button>
+                <Button e:if={view.detail.can.receive} variant="primary" disabled={waiting(view, "received")} loading={view.busy === "received"} onclick={() => onAdvance(view, "received")}>Mark received</Button>
+              </CardFooter>
+            </Card>
 
-            <div class="card">
-              <div class="card-head">
-                <h2>Details</h2>
-              </div>
-              <div class="card-body stack is-lg">
+            <Card title="Details" level={2}>
+              <CardContent class="stack is-lg">
                 <dl class="facts">
                   <div><dt>Vendor</dt><dd>{view.detail.vendor}</dd></div>
                   <div><dt>Category</dt><dd>{view.detail.category}</dd></div>
@@ -296,14 +295,11 @@ function stepState(a: Approval): string {
                   </span>
                 </a>
                 <p e:else class="hint">No quote attached.</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div class="card">
-              <div class="card-head">
-                <h2>History</h2>
-              </div>
-              <div class="card-body stack is-lg">
+            <Card title="History" level={2}>
+              <CardContent class="stack is-lg">
                 <ol class="history">
                   <li e:for={e of view.detail.events}>
                     <span class="history-what row">
@@ -321,22 +317,20 @@ function stepState(a: Approval): string {
                 </ol>
 
                 <form e:if={view.detail.can.comment} class="stack is-sm" onsubmit={() => onComment(view)}>
-                  <label for="reply" class="text-sm">Add a comment</label>
-                  <textarea id="reply" value={view.reply} placeholder="Ask a question or add context"></textarea>
+                  <Field label="Add a comment">
+                    <Textarea value={view.reply} placeholder="Ask a question or add context" />
+                  </Field>
                   <div class="row comment-actions">
-                    <button type="submit" disabled={view.busy || !view.reply.trim()}>Comment</button>
+                    <Button type="submit" disabled={waiting(view, "comment") || !view.reply.trim()} loading={view.busy === "comment"}>Comment</Button>
                   </div>
                 </form>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div class="stack is-lg">
-            <div class="card">
-              <div class="card-head">
-                <h2>Approval chain</h2>
-              </div>
-              <div class="card-body">
+            <Card title="Approval chain" level={2}>
+              <CardContent>
                 <ol class="chain">
                   <li e:for={a of view.detail.approvals} class={["chain-step", `is-${a.status}`]}>
                     <span class="chain-dot"><StepIcon state={a.status} /></span>
@@ -348,14 +342,14 @@ function stepState(a: Approval): string {
                     </div>
                   </li>
                 </ol>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div class="card">
-              <div class="card-body">
+            <Card>
+              <CardContent>
                 <BudgetBar budget={view.detail.budget} amountCents={view.detail.amountCents} status={view.detail.status} />
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
