@@ -23,20 +23,11 @@
 .dept-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-1) var(--space-4);
 }
 
 .dept-fields .is-full {
   grid-column: 1 / -1;
-}
-
-.dept-saved {
-  color: var(--success);
-  font-size: var(--text-sm);
-}
-
-.card-foot {
-  align-items: center;
 }
 
 @media (max-width: 30rem) {
@@ -45,8 +36,7 @@
   }
 }
 
-.dept-list > form.card {
-  display: block;
+.dept-list > form {
   align-self: start;
 }
 

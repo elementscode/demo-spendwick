@@ -1,4 +1,10 @@
 import "./style.css";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent, CardFooter } from "@elements/ui/card";
+import { Field } from "@elements/ui/field";
+import { Input } from "@elements/ui/input";
+import { NativeSelect } from "@elements/ui/native-select";
+import { toast } from "@elements/ui/toast";
 import type { Listener } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import { Budget, CurrentUser, Department } from "#app/shared/models";
@@ -11,7 +17,6 @@ interface Editor {
   id: string;
   form: DepartmentForm;
   errors: Record<string, string[]>;
-  saved: boolean;
   busy: boolean;
 }
 
@@ -31,7 +36,6 @@ function editorFor(d: Department): Editor {
       headId: d.headId ?? "",
     },
     errors: {},
-    saved: false,
     busy: false,
   };
 }
@@ -46,7 +50,6 @@ function blank(): Editor {
       headId: "",
     },
     errors: {},
-    saved: false,
     busy: false,
   };
 }
@@ -57,7 +60,6 @@ function onChange(view: View) {
 
 function onSave(view: View, editor: Editor) {
   editor.busy = true;
-  editor.saved = false;
 
   try {
     let departments = saveDepartment(editor.form);
@@ -68,8 +70,8 @@ function onSave(view: View, editor: Editor) {
     }
 
     view.editors = departments.map(editorFor);
-    view.editors.find((e) => e.id === (editor.id === "new" ? departments.find((d) => d.name === editor.form.name.trim())?.id : editor.id))!.saved = true;
     view.budgets = fetchBudgets();
+    toast.success("Saved", { description: editor.form.name.trim() });
   } catch (err: any) {
     editor.errors = err.errors ?? { name: [err.message] };
   }
@@ -82,25 +84,19 @@ function onSave(view: View, editor: Editor) {
   people: Person[],
 )>
   <div class="dept-fields">
-    <div class="field">
-      <label for={`name-${editor.id}`}>Name</label>
-      <input id={`name-${editor.id}`} value={editor.form.name} class={[editor.errors.name && "is-error"]} required>
-      <p e:if={editor.errors.name} class="error">{editor.errors.name[0]}</p>
-    </div>
+    <Field label="Name" error={editor.errors.name?.[0] ?? ""} required>
+      <Input value={editor.form.name} />
+    </Field>
 
-    <div class="field">
-      <label for={`budget-${editor.id}`}>Quarterly budget ($)</label>
-      <input id={`budget-${editor.id}`} inputmode="decimal" value={editor.form.budget} class={[editor.errors.budget && "is-error"]} required>
-      <p e:if={editor.errors.budget} class="error">{editor.errors.budget[0]}</p>
-    </div>
+    <Field label="Quarterly budget ($)" error={editor.errors.budget?.[0] ?? ""} required>
+      <Input value={editor.form.budget} attrs={{ inputmode: "decimal" }} />
+    </Field>
 
-    <div class="field is-full">
-      <label for={`head-${editor.id}`}>Department head</label>
-      <select id={`head-${editor.id}`} value={editor.form.headId}>
-        <option value="">No head (finance approves everything)</option>
-        <option e:for={p of people} value={p.id}>{p.name}</option>
-      </select>
-    </div>
+    <Field label="Department head" class="is-full">
+      <NativeSelect value={editor.form.headId}
+                    options={[{ value: "", label: "No head (finance approves everything)" }, ...people.map((p) => ({ value: p.id, label: p.name }))]}
+                    block />
+    </Field>
   </div>
 </DeptFields>
 
@@ -129,29 +125,29 @@ function onSave(view: View, editor: Editor) {
         </div>
 
         <div class="dept-list">
-          <form e:for={e of view.editors} class="card" onsubmit={() => onSave(view, e)}>
-            <div class="card-body dept-form">
-              <DeptFields editor={e} {people} />
-              <BudgetBar e:if={view.budgets.find((b) => b.departmentId === e.id)}
-                         budget={view.budgets.find((b) => b.departmentId === e.id)!}
-                         title="This quarter" />
-            </div>
-            <div class="card-foot">
-              <span e:if={e.saved} class="dept-saved" role="status">Saved</span>
-              <button type="submit" class="is-primary" disabled={e.busy}>Save</button>
-            </div>
+          <form e:for={e of view.editors} onsubmit={() => onSave(view, e)}>
+            <Card>
+              <CardContent class="dept-form">
+                <DeptFields editor={e} {people} />
+                <BudgetBar e:if={view.budgets.find((b) => b.departmentId === e.id)}
+                           budget={view.budgets.find((b) => b.departmentId === e.id)!}
+                           title="This quarter" />
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" variant="primary" loading={e.busy}>Save</Button>
+              </CardFooter>
+            </Card>
           </form>
 
-          <form class="card" onsubmit={() => onSave(view, view.adding)}>
-            <div class="card-head">
-              <h2>Add a department</h2>
-            </div>
-            <div class="card-body">
-              <DeptFields editor={view.adding} {people} />
-            </div>
-            <div class="card-foot">
-              <button type="submit" class="is-primary" disabled={view.adding.busy}>Add department</button>
-            </div>
+          <form onsubmit={() => onSave(view, view.adding)}>
+            <Card title="Add a department" level={2}>
+              <CardContent>
+                <DeptFields editor={view.adding} {people} />
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" variant="primary" loading={view.adding.busy}>Add department</Button>
+              </CardFooter>
+            </Card>
           </form>
         </div>
       </div>

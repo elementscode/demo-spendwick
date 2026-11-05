@@ -148,6 +148,7 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
                   <NativeSelect value={view.form.departmentId}
                                 placeholder="Pick a department"
                                 options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                                required
                                 block />
                 </Field>
 
@@ -155,6 +156,7 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
                   <NativeSelect value={view.form.category}
                                 placeholder="Pick a category"
                                 options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                                required
                                 block />
                 </Field>
               </div>
