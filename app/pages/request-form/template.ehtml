@@ -1,4 +1,12 @@
 import "./style.css";
+import { Alert } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent, CardFooter } from "@elements/ui/card";
+import { Field } from "@elements/ui/field";
+import { Input } from "@elements/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupText } from "@elements/ui/input-group";
+import { NativeSelect } from "@elements/ui/native-select";
+import { Textarea } from "@elements/ui/textarea";
 import type { Listener } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import {
@@ -21,7 +29,7 @@ interface View {
   budgets: Budget[];
   errors: Record<string, string[]>;
   error: string;
-  busy: boolean;
+  busy: "" | "draft" | "submit";
 }
 
 interface RouteStep {
@@ -36,7 +44,7 @@ function onChange(view: View) {
 }
 
 function onSave(view: View, submit: boolean) {
-  view.busy = true;
+  view.busy = submit ? "submit" : "draft";
   view.error = "";
 
   try {
@@ -44,8 +52,12 @@ function onSave(view: View, submit: boolean) {
   } catch (err: any) {
     view.errors = err.errors ?? {};
     view.error = err.errors ? "Fix the highlighted fields." : err.message;
-    view.busy = false;
+    view.busy = "";
   }
+}
+
+function fieldError(errors: Record<string, string[]>, name: string): string {
+  return errors[name]?.[0] ?? "";
 }
 
 function cents(view: View): number {
@@ -84,10 +96,6 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
   return steps;
 }
 
-<FieldError (errors: Record<string, string[]>, name: string)>
-  <p e:if={errors[name]} class="error">{errors[name][0]}</p>
-</FieldError>
-
 <html lang="en" class="page-request-form" (
   user: CurrentUser,
   changes: Listener<RequestChange>,
@@ -99,7 +107,7 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
     budgets: initialBudgets,
     errors: {},
     error: "",
-    busy: false,
+    busy: "",
   },
 ) oninit={() => changes.on("notify", () => onChange(view))}>
   <head>
@@ -116,76 +124,62 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
         </div>
 
         <div class="form-grid">
-          <div class="card">
-            <div class="card-body stack is-lg">
-              <p e:if={view.error} class="callout is-danger" role="alert">{view.error}</p>
+          <Card>
+            <CardContent class="stack is-sm">
+              <Alert e:if={view.error} variant="danger">{view.error}</Alert>
 
-              <div class="field">
-                <label for="item">What are you buying?</label>
-                <input id="item" value={view.form.item} class={[view.errors.item && "is-error"]} placeholder="Ergonomic chairs (x6)" required>
-                <FieldError errors={view.errors} name="item" />
-              </div>
+              <Field label="What are you buying?" error={fieldError(view.errors, "item")} required>
+                <Input value={view.form.item} placeholder="Ergonomic chairs (x6)" />
+              </Field>
 
               <div class="form-pair">
-                <div class="field">
-                  <label for="vendor">Vendor</label>
-                  <input id="vendor" value={view.form.vendor} class={[view.errors.vendor && "is-error"]} placeholder="Fernhill Furniture" required>
-                  <FieldError errors={view.errors} name="vendor" />
-                </div>
+                <Field label="Vendor" error={fieldError(view.errors, "vendor")} required>
+                  <Input value={view.form.vendor} placeholder="Fernhill Furniture" />
+                </Field>
 
-                <div class="field">
-                  <label for="amount">Amount (USD)</label>
-                  <div class="amount-input">
-                    <span>$</span>
-                    <input id="amount" inputmode="decimal" value={view.form.amount} class={[view.errors.amount && "is-error"]} placeholder="1,250.00" required>
-                  </div>
-                  <FieldError errors={view.errors} name="amount" />
-                </div>
+                <Field label="Amount (USD)" error={fieldError(view.errors, "amount")} required>
+                  <InputGroup class="amount-input">
+                    <Input value={view.form.amount} placeholder="1,250.00" attrs={{ inputmode: "decimal" }} />
+                    <InputGroupAddon><InputGroupText>$</InputGroupText></InputGroupAddon>
+                  </InputGroup>
+                </Field>
 
-                <div class="field">
-                  <label for="department">Department</label>
-                  <select id="department" value={view.form.departmentId} class={[view.errors.departmentId && "is-error"]} required>
-                    <option value="" disabled>Pick a department</option>
-                    <option e:for={d of departments} value={d.id}>{d.name}</option>
-                  </select>
-                  <FieldError errors={view.errors} name="departmentId" />
-                </div>
+                <Field label="Department" error={fieldError(view.errors, "departmentId")} required>
+                  <NativeSelect value={view.form.departmentId}
+                                placeholder="Pick a department"
+                                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                                block />
+                </Field>
 
-                <div class="field">
-                  <label for="category">Category</label>
-                  <select id="category" value={view.form.category} class={[view.errors.category && "is-error"]} required>
-                    <option value="" disabled>Pick a category</option>
-                    <option e:for={c of CATEGORIES.map((c) => ({ id: c, name: c }))} value={c.id}>{c.name}</option>
-                  </select>
-                  <FieldError errors={view.errors} name="category" />
-                </div>
+                <Field label="Category" error={fieldError(view.errors, "category")} required>
+                  <NativeSelect value={view.form.category}
+                                placeholder="Pick a category"
+                                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                                block />
+                </Field>
               </div>
 
-              <div class="field">
-                <label for="reason">Why do you need it?</label>
-                <textarea id="reason" value={view.form.reason} placeholder="What it is for, and what happens if we do not buy it"></textarea>
-              </div>
+              <Field label="Why do you need it?">
+                <Textarea value={view.form.reason} placeholder="What it is for, and what happens if we do not buy it" />
+              </Field>
 
               <div class="field">
                 <label for="quote">Quote</label>
                 <input id="quote" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt" value={view.form.quote} class={[view.errors.quote && "is-error"]}>
                 <p e:if={view.form.quoteName && !view.form.quote} class="hint">Attached: {view.form.quoteName}. Choose a file to replace it.</p>
                 <p e:else class="hint">PDF, image or text, up to 10 MB.</p>
-                <FieldError errors={view.errors} name="quote" />
+                <p e:if={view.errors.quote} class="error">{view.errors.quote[0]}</p>
               </div>
-            </div>
-            <div class="card-foot">
-              <button type="button" class="is-ghost" disabled={view.busy} onclick={() => onSave(view, false)}>Save draft</button>
-              <button type="submit" class="is-primary" disabled={view.busy}>Submit for approval</button>
-            </div>
-          </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" disabled={view.busy === "submit"} loading={view.busy === "draft"} onclick={() => onSave(view, false)}>Save draft</Button>
+              <Button type="submit" variant="primary" disabled={view.busy === "draft"} loading={view.busy === "submit"}>Submit for approval</Button>
+            </CardFooter>
+          </Card>
 
           <div class="form-side stack is-lg">
-            <div class="card">
-              <div class="card-head">
-                <h2>Approval route</h2>
-              </div>
-              <div class="card-body">
+            <Card title="Approval route" level={2}>
+              <CardContent>
                 <ol e:if={route(user, departments, view).length > 0} class="route-list">
                   <li e:for={s of route(user, departments, view)}>
                     <span class="route-num">{s.n}</span>
@@ -196,16 +190,16 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
                   </li>
                 </ol>
                 <p e:else class="hint">Pick a department to see who approves this.</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div e:if={view.budgets.find((b) => b.departmentId === view.form.departmentId)} class="card">
-              <div class="card-body">
+            <Card e:if={view.budgets.find((b) => b.departmentId === view.form.departmentId)}>
+              <CardContent>
                 <BudgetBar budget={view.budgets.find((b) => b.departmentId === view.form.departmentId)!}
                            amountCents={cents(view)}
                            status="draft" />
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </form>
