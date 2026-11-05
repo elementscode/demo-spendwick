@@ -4,6 +4,8 @@
 
 > Spendwick is a full-stack app built with Claude Code on Elements.
 
+Spendwick uses the `dashboard` theme from @elements/ui.
+
 Purchase requests with attached quotes, department head and finance approvals, live quarterly budgets that warn before overspending, decision emails and a finance spend view.
 
 [Run this app on your machine](https://elements.dev/demos/01a113f7-bd6b-7e16-aa64-f1a0e4a2e7b9). Use this demo as inspiration, or as the starting point for your own app. Your agent creates a new app with this one as the scaffold, and you prompt it to add whatever features you want.
