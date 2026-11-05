@@ -1,2 +1,3 @@
-@import "@elements/style";
+@import "@elements/ui";
+@import "@elements/ui/themes/dashboard";
 @import "./vars.css";

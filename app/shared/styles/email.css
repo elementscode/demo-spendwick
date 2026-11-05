@@ -1,4 +1,4 @@
-@import "@elements/style/email";
+@import "@elements/ui/email";
 @import "./vars.css";
 
 .email .summary {
