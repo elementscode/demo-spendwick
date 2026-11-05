@@ -1,5 +1,7 @@
 import "./style.css";
 import { redirect } from "@elements/app";
+import { Button } from "@elements/ui/button";
+import { Toaster } from "@elements/ui/toast";
 import { CurrentUser, roleLabel } from "#app/shared/models";
 import { signout } from "#app/shared/services/auth";
 
@@ -39,7 +41,7 @@ function onSignout() {
             <span>{user.name}</span>
             <span class="whoami-role">{roleLabel(user.role)}{user.departmentName ? ` · ${user.departmentName}` : ""}</span>
           </span>
-          <button class="is-ghost is-sm" onclick={() => onSignout()}>Sign out</button>
+          <Button variant="ghost" size="sm" onclick={() => onSignout()}>Sign out</Button>
         </div>
       </div>
     </header>
@@ -49,5 +51,7 @@ function onSignout() {
         <slot/>
       </div>
     </main>
+
+    <Toaster />
   </div>
 </Layout>

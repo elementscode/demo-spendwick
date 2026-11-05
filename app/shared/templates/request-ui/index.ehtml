@@ -1,4 +1,6 @@
 import "./style.css";
+import { Alert, AlertDescription, AlertTitle } from "@elements/ui/alert";
+import { Badge } from "@elements/ui/badge";
 import { Budget, Status, Step, money, statusIntent, statusLabel } from "#app/shared/models";
 
 function pct(part: number, whole: number): string {
@@ -6,10 +8,7 @@ function pct(part: number, whole: number): string {
 }
 
 <StatusPill (state: Status)>
-  <span class={["pill", statusIntent(state)]}>
-    <span class="pill-dot"></span>
-    {statusLabel(state)}
-  </span>
+  <Badge variant={statusIntent(state)} dot>{statusLabel(state)}</Badge>
 </StatusPill>
 
 <StatusCell (
@@ -70,19 +69,19 @@ function pct(part: number, whole: number): string {
       </div>
     </dl>
 
-    <div e:if={over && thisCents > 0} class="callout is-danger" role="alert">
-      <div class="callout-title">Over budget</div>
-      <div class="callout-body">
+    <Alert e:if={over && thisCents > 0} variant="danger">
+      <AlertTitle>Over budget</AlertTitle>
+      <AlertDescription>
         Approving this puts {budget.departmentName} {money(budget.committedCents + thisCents - budget.budgetCents)} over its {budget.quarter} budget.
-      </div>
-    </div>
-    <div e:elseif={over} class="callout is-danger" role="alert">
-      <div class="callout-body">{budget.departmentName} is {money(budget.committedCents - budget.budgetCents)} over its {budget.quarter} budget.</div>
-    </div>
-    <div e:elseif={budget.committedCents + pendingCents + thisCents > budget.budgetCents} class="callout is-warning">
-      <div class="callout-body">
+      </AlertDescription>
+    </Alert>
+    <Alert e:elseif={over} variant="danger">
+      <AlertDescription>{budget.departmentName} is {money(budget.committedCents - budget.budgetCents)} over its {budget.quarter} budget.</AlertDescription>
+    </Alert>
+    <Alert e:elseif={budget.committedCents + pendingCents + thisCents > budget.budgetCents} variant="warning" role="status">
+      <AlertDescription>
         If every pending request is approved, {budget.departmentName} goes {money(budget.committedCents + pendingCents + thisCents - budget.budgetCents)} over budget.
-      </div>
-    </div>
+      </AlertDescription>
+    </Alert>
   </div>
 </BudgetBar>

@@ -1,5 +1,3 @@
-@import "#app/shared/styles/page.css";
-
 .budget {
   display: grid;
   gap: var(--space-3);

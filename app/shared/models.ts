@@ -172,25 +172,25 @@ export function statusLabel(s: Status): string {
   return s[0].toUpperCase() + s.slice(1);
 }
 
-export function statusIntent(s: Status): string {
+export function statusIntent(s: Status): "outline" | "warning" | "success" | "danger" | "info" | "accent" {
   switch (s) {
     case "draft":
-      return "";
+      return "outline";
 
     case "submitted":
-      return "is-warning";
+      return "warning";
 
     case "approved":
-      return "is-success";
+      return "success";
 
     case "rejected":
-      return "is-danger";
+      return "danger";
 
     case "ordered":
-      return "is-info";
+      return "info";
 
     case "received":
-      return "is-accent";
+      return "accent";
   }
 }
 

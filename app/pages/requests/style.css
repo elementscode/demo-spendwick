@@ -59,20 +59,8 @@
   font-size: var(--text-xs);
 }
 
-.inbox-empty {
-  color: var(--ink-soft);
-}
-
-.card-head .count {
+.requests-top .count {
   margin-inline-start: var(--space-2);
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-.requests-table {
-  width: 100%;
 }
 
 .requests-table td,
@@ -85,6 +73,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   white-space: nowrap;
+}
+
+.requests-table .item {
+  white-space: normal;
 }
 
 .requests-table .item a {
@@ -103,21 +95,11 @@
   font-size: var(--text-xs);
 }
 
-.requests-table .right {
-  text-align: right;
-}
-
 .tab-count {
   margin-inline-start: var(--space-1);
   color: var(--ink-dim);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
-}
-
-.empty-state {
-  padding: var(--space-10) var(--space-5);
-  text-align: center;
-  color: var(--ink-soft);
 }
 
 @media (max-width: 60rem) {
