@@ -1,4 +1,9 @@
 import "./style.css";
+import { Alert } from "@elements/ui/alert";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Field } from "@elements/ui/field";
+import { Input } from "@elements/ui/input";
 import { redirect } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import { Role } from "#app/shared/models";
@@ -66,32 +71,24 @@ function groups(accounts: DemoAccount[]) {
             <p class="signin-intro">Purchase requests and approvals for the whole company.</p>
           </div>
 
-          <p e:if={form.error} class="error" role="alert">{form.error}</p>
+          <Alert e:if={form.error} variant="danger">{form.error}</Alert>
 
-          <div class="field">
-            <label for="email">Email</label>
-            <input id="email"
-                   name="email"
+          <Field label="Email" required>
+            <Input name="email"
                    type="email"
                    value={form.email}
-                   autocomplete="email"
-                   autocapitalize="none"
-                   spellcheck={false}
                    placeholder="you@company.com"
-                   required>
-          </div>
+                   attrs={{ autocomplete: "email", autocapitalize: "none", spellcheck: "false" }} />
+          </Field>
 
-          <div class="field">
-            <label for="password">Password</label>
-            <input id="password"
-                   name="password"
+          <Field label="Password" required>
+            <Input name="password"
                    type="password"
                    value={form.password}
-                   autocomplete="current-password"
-                   required>
-          </div>
+                   attrs={{ autocomplete: "current-password" }} />
+          </Field>
 
-          <button type="submit" class="is-primary is-block">Sign in</button>
+          <Button type="submit" variant="primary" block>Sign in</Button>
         </form>
 
         <section e:if={accounts.length > 0} class="stack is-lg" aria-labelledby="demo-title">
@@ -110,7 +107,7 @@ function groups(accounts: DemoAccount[]) {
                       {a.name}
                       <span class="demo-account-email">{a.email}</span>
                     </span>
-                    <span e:if={a.departmentName} class="pill">{a.departmentName}</span>
+                    <Badge e:if={a.departmentName} variant="outline">{a.departmentName}</Badge>
                   </button>
                 </li>
               </ul>
