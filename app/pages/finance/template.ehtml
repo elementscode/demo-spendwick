@@ -1,5 +1,13 @@
 import "./style.css";
 import type { Listener } from "@elements/app";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
+import type { ChartConfig } from "@elements/ui/chart";
+import { BarChart } from "@elements/ui/chart-bar";
+import { CardHeader, CardTitle } from "@elements/ui/card";
+import { Input } from "@elements/ui/input";
+import { NativeSelect } from "@elements/ui/native-select";
+import { Table, TableCell, TableHead } from "@elements/ui/table";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import {
   CurrentUser,
@@ -31,9 +39,26 @@ interface View {
 }
 
 const STATUS_OPTIONS = STATUSES.filter((s) => s !== "draft").map((s) => ({
-  id: s,
+  value: s,
   label: statusLabel(s),
 }));
+
+const PERIOD_OPTIONS = [
+  { value: "quarter", label: "This quarter" },
+  { value: "all", label: "All time" },
+];
+
+const DEPARTMENT_CHART: ChartConfig = {
+  committed: { label: "Committed", color: "var(--accent)" },
+  pending: { label: "Pending", color: "color-mix(in oklab, var(--accent) 35%, var(--bg-muted))" },
+  left: { label: "Unspent budget", color: "var(--bg-muted)" },
+};
+
+const CATEGORY_CHART: ChartConfig = {
+  committed: { label: "Committed", color: "var(--accent)" },
+  pending: { label: "Pending", color: "color-mix(in oklab, var(--accent) 35%, var(--bg-muted))" },
+};
+
 
 function onChange(view: View) {
   view.page = fetchFinancePage();
@@ -62,37 +87,30 @@ function exportUrl(f: Filters): string {
   return `/finance/export.csv?${p}`;
 }
 
-function pct(part: number, whole: number): string {
-  return `${Math.max(0, (part / Math.max(whole, 1)) * 100)}%`;
+function departmentBars(rows: SpendRow[]) {
+  return rows.map((r) => ({
+    label: r.label,
+    committed: r.committedCents,
+    pending: r.pendingCents,
+    left: Math.max(0, r.budgetCents - r.committedCents - r.pendingCents),
+    budget: r.budgetCents,
+  }));
 }
 
-function scaleOf(rows: SpendRow[]): number {
-  return Math.max(1, ...rows.map((r) => Math.max(r.budgetCents, r.committedCents + r.pendingCents)));
+function categoryBars(rows: SpendRow[]) {
+  return rows.map((r) => ({
+    label: r.label,
+    committed: r.committedCents,
+    pending: r.pendingCents,
+  }));
 }
 
-<SpendBars (
-  rows: SpendRow[],
-  showBudget: boolean,
-  private scale: number = scaleOf(rows),
-)>
-  <ul class="bars">
-    <li e:for={r of rows.map((r) => ({ ...r, id: r.label }))}
-        class="bar-row"
-        title={`${r.label}: ${money(r.committedCents)} committed, ${money(r.pendingCents)} pending${showBudget ? ` of ${money(r.budgetCents)}` : ""}`}>
-      <span class="bar-label">{r.label}</span>
-      <span class="bar-track">
-        <span class={["bar-fill", "is-committed", showBudget && r.committedCents > r.budgetCents && "is-over"]} style={{ "flex-basis": pct(r.committedCents, scale) }}></span>
-        <span class="bar-fill is-pending" style={{ "flex-basis": pct(r.pendingCents, scale) }}></span>
-        <span e:if={showBudget} class="bar-limit" style={{ left: `calc(${pct(r.budgetCents, scale)} - 1px)` }}></span>
-      </span>
-      <span class="bar-value">
-        {money(r.committedCents)}
-        <small e:if={showBudget}>of {money(r.budgetCents)} · {money(r.budgetCents - r.committedCents)} left</small>
-        <small e:else>{money(r.pendingCents)} pending</small>
-      </span>
-    </li>
-  </ul>
-</SpendBars>
+function budgetNote(row: Record<string, unknown>): string {
+  let budget = row.budget as number;
+  let committed = row.committed as number;
+
+  return committed > budget ? `${money(committed - budget)} over its ${money(budget)} budget` : `of ${money(budget)} · ${money(budget - committed)} left`;
+}
 
 <html lang="en" class="page-finance" (
   user: CurrentUser,
@@ -121,120 +139,117 @@ function scaleOf(rows: SpendRow[]): number {
             <h1>Finance</h1>
             <p>Spend across every department for {view.page.summary.quarter}. Updates as requests are decided.</p>
           </div>
-          <a class="button" href={exportUrl(view.filters)} download>Export CSV</a>
+          <Button href={exportUrl(view.filters)} attrs={{ download: true }}>Export CSV</Button>
         </div>
 
         <div class="tiles">
-          <div class="card tile">
+          <Card class="tile">
             <span class="tile-label">Quarterly budget</span>
             <span class="tile-value">{money(view.page.summary.totalBudgetCents)}</span>
             <span class="tile-note">{view.page.summary.byDepartment.length} departments</span>
-          </div>
-          <div class="card tile">
+          </Card>
+          <Card class="tile">
             <span class="tile-label">Committed</span>
             <span class="tile-value">{money(view.page.summary.totalCommittedCents)}</span>
             <span class="tile-note">Approved, ordered and received</span>
-          </div>
-          <div class="card tile">
+          </Card>
+          <Card class="tile">
             <span class="tile-label">Remaining</span>
             <span class="tile-value">{money(view.page.summary.totalBudgetCents - view.page.summary.totalCommittedCents)}</span>
             <span class="tile-note">{money(view.page.summary.totalPendingCents)} more is pending</span>
-          </div>
-          <div class="card tile">
+          </Card>
+          <Card class="tile">
             <span class="tile-label">Waiting on finance</span>
             <span class="tile-value">{view.page.summary.awaitingFinance}</span>
             <a e:if={view.page.summary.awaitingFinance > 0} href="/requests">Review them</a>
             <span e:else class="tile-note">All caught up</span>
-          </div>
+          </Card>
         </div>
 
         <div class="charts">
-          <div class="card">
-            <div class="card-head">
-              <h2>Spend by department</h2>
-            </div>
-            <div class="card-body stack is-lg">
-              <SpendBars rows={view.page.summary.byDepartment} showBudget={true} />
-              <div class="legend cluster">
-                <span class="row"><span class="swatch is-committed"></span>Committed</span>
-                <span class="row"><span class="swatch is-pending"></span>Pending</span>
-                <span class="row"><span class="swatch is-limit"></span>Quarterly budget</span>
-              </div>
-            </div>
-          </div>
+          <Card title="Spend by department" level={2}>
+            <CardContent>
+              <BarChart data={departmentBars(view.page.summary.byDepartment)}
+                        config={DEPARTMENT_CHART}
+                        x="label"
+                        orientation="horizontal"
+                        stack="normal"
+                        legend
+                        maxBarSize={28}
+                        label="Spend by department"
+                        categoryAxis={{ size: 96 }}
+                        tooltip={{ formatter: (value) => money(value as number), footer: budgetNote }}
+                        class="spend-chart is-departments" />
+            </CardContent>
+          </Card>
 
-          <div class="card">
-            <div class="card-head">
-              <h2>Spend by category</h2>
-            </div>
-            <div class="card-body stack is-lg">
-              <SpendBars e:if={view.page.summary.byCategory.length > 0} rows={view.page.summary.byCategory} showBudget={false} />
+          <Card title="Spend by category" level={2}>
+            <CardContent>
+              <BarChart e:if={view.page.summary.byCategory.length > 0}
+                        data={categoryBars(view.page.summary.byCategory)}
+                        config={CATEGORY_CHART}
+                        x="label"
+                        orientation="horizontal"
+                        stack="normal"
+                        legend
+                        maxBarSize={28}
+                        label="Spend by category"
+                        categoryAxis={{ size: 120 }}
+                        tooltip={{ formatter: (value) => money(value as number) }}
+                        class="spend-chart is-categories" />
               <p e:else class="hint">No spend this quarter yet.</p>
-              <div class="legend cluster">
-                <span class="row"><span class="swatch is-committed"></span>Committed</span>
-                <span class="row"><span class="swatch is-pending"></span>Pending</span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <h2>All requests</h2>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle level={2}>All requests</CardTitle>
+          </CardHeader>
 
           <div class="filters cluster">
-            <input class="grow" type="search" value={view.filters.search} placeholder="Search item, vendor, person" aria-label="Search">
-            <select value={view.filters.status} aria-label="Status">
-              <option value="">Any status</option>
-              <option e:for={s of STATUS_OPTIONS} value={s.id}>{s.label}</option>
-            </select>
-            <select value={view.filters.department} aria-label="Department">
-              <option value="">All departments</option>
-              <option e:for={d of departments} value={d.id}>{d.name}</option>
-            </select>
-            <select value={view.filters.range} aria-label="Period">
-              <option value="quarter">This quarter</option>
-              <option value="all">All time</option>
-            </select>
+            <Input type="search" class="grow" value={view.filters.search} placeholder="Search item, vendor, person" attrs={{ "aria-label": "Search" }} />
+            <NativeSelect value={view.filters.status} options={[{ value: "", label: "Any status" }, ...STATUS_OPTIONS]} attrs={{ "aria-label": "Status" }} />
+            <NativeSelect value={view.filters.department} options={[{ value: "", label: "All departments" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} attrs={{ "aria-label": "Department" }} />
+            <NativeSelect value={view.filters.range} options={PERIOD_OPTIONS} attrs={{ "aria-label": "Period" }} />
           </div>
 
-          <div e:if={filtered(view).length > 0} class="table-wrap">
-            <table class="all-table">
+          <Table e:if={filtered(view).length > 0} label="All requests" class="all-table">
+            <table>
               <thead>
                 <tr>
-                  <th class="hide-sm">#</th>
-                  <th>Item</th>
-                  <th class="hide-sm">Requested by</th>
-                  <th class="hide-sm">Category</th>
-                  <th class="right">Amount</th>
-                  <th>Status</th>
-                  <th class="hide-sm">Submitted</th>
+                  <TableHead class="hide-sm">#</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead class="hide-sm">Requested by</TableHead>
+                  <TableHead class="hide-sm">Category</TableHead>
+                  <TableHead align="end">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead class="hide-sm">Submitted</TableHead>
                 </tr>
               </thead>
               <tbody>
                 <tr e:for={r of filtered(view)}>
-                  <td class="num hide-sm">{requestNumber(r.number)}</td>
-                  <td class="item">
+                  <TableCell class="num hide-sm">{requestNumber(r.number)}</TableCell>
+                  <TableCell class="item">
                     <a href={`/requests/${r.id}`}>{r.item}</a>
                     <span class="sub">{r.vendor} · {r.departmentName}</span>
-                  </td>
-                  <td class="hide-sm">{r.requesterName}</td>
-                  <td class="hide-sm">{r.category}</td>
-                  <td class="right amount">{money(r.amountCents)}</td>
-                  <td><StatusCell state={r.status} pendingStep={r.pendingStep} /></td>
-                  <td class="hide-sm sub">{r.submittedAt ? shortDate(r.submittedAt) : ""}</td>
+                  </TableCell>
+                  <TableCell class="hide-sm">{r.requesterName}</TableCell>
+                  <TableCell class="hide-sm">{r.category}</TableCell>
+                  <TableCell align="end" class="amount">{money(r.amountCents)}</TableCell>
+                  <TableCell><StatusCell state={r.status} pendingStep={r.pendingStep} /></TableCell>
+                  <TableCell class="hide-sm sub">{r.submittedAt ? shortDate(r.submittedAt) : ""}</TableCell>
                 </tr>
               </tbody>
             </table>
-          </div>
-          <div e:else class="card-body hint">No requests match these filters.</div>
+          </Table>
+          <CardContent e:else class="hint">No requests match these filters.</CardContent>
 
           <div class="table-foot row">
             <span>{filtered(view).length} requests</span>
             <span>{money(filtered(view).reduce((n, r) => n + r.amountCents, 0))} total</span>
           </div>
-        </div>
+        </Card>
       </div>
     </Layout>
   </body>
