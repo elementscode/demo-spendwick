@@ -236,6 +236,11 @@
 }
 
 .live .pill-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--success);
   animation: live-pulse 2.4s ease-in-out infinite;
 }
 
@@ -267,14 +272,6 @@
   .req-head h1 {
     font-size: var(--text-2xl);
   }
-}
-
-.live .pill-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--success);
 }
 
 .comment-actions {

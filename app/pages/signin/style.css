@@ -26,6 +26,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .demo-group h3 {
@@ -85,12 +88,6 @@
   .page-signin .signin-main {
     padding-block: var(--space-8);
   }
-}
-
-.demo-groups {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .page-signin h2 {
