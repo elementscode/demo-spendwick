@@ -1,13 +1,12 @@
 import "./style.css";
 import type { Listener } from "@elements/app";
 import { Button } from "@elements/ui/button";
-import { Card, CardContent } from "@elements/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@elements/ui/card";
 import type { ChartConfig } from "@elements/ui/chart";
 import { BarChart } from "@elements/ui/chart-bar";
-import { CardHeader, CardTitle } from "@elements/ui/card";
+import { DataTable, DataTableColumn } from "@elements/ui/data-table";
 import { Input } from "@elements/ui/input";
 import { NativeSelect } from "@elements/ui/native-select";
-import { Table, TableCell, TableHead } from "@elements/ui/table";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import {
   CurrentUser,
@@ -19,12 +18,12 @@ import {
   quarterStart,
   requestNumber,
   shortDate,
+  statusIntent,
   statusLabel,
 } from "#app/shared/models";
 import { FinancePage, fetchFinancePage } from "#app/shared/services/finance";
 import { RequestChange } from "#app/shared/services/requests";
 import { Layout } from "#app/shared/templates/layout";
-import { StatusCell } from "#app/shared/templates/request-ui";
 
 interface Filters {
   status: string;
@@ -36,6 +35,7 @@ interface Filters {
 interface View {
   page: FinancePage;
   filters: Filters;
+  phone: boolean;
 }
 
 const STATUS_OPTIONS = STATUSES.filter((s) => s !== "draft").map((s) => ({
@@ -59,6 +59,76 @@ const CATEGORY_CHART: ChartConfig = {
   pending: { label: "Pending", color: "color-mix(in oklab, var(--accent) 35%, var(--bg-muted))" },
 };
 
+const COLUMNS: DataTableColumn[] = [
+  {
+    id: "number",
+    header: "#",
+    value: (row) => requestNumber((row as RequestRow).number),
+    cell: (row) => ({ text: requestNumber((row as RequestRow).number), mono: true, muted: true }),
+  },
+  {
+    id: "item",
+    header: "Item",
+    rowHeader: true,
+    wrap: true,
+    value: (row) => (row as RequestRow).item,
+    cell: (row) => itemCell(row as RequestRow),
+  },
+  { key: "requesterName", header: "Requested by" },
+  { key: "category", header: "Category" },
+  {
+    id: "amount",
+    header: "Amount",
+    align: "end",
+    value: (row) => (row as RequestRow).amountCents,
+    cell: (row) => money((row as RequestRow).amountCents),
+  },
+  {
+    id: "status",
+    header: "Status",
+    value: (row) => statusLabel((row as RequestRow).status),
+    cell: (row) => statusCell(row as RequestRow),
+  },
+  {
+    id: "submitted",
+    header: "Submitted",
+    value: (row) => (row as RequestRow).submittedAt,
+    cell: (row) => ({ text: submittedText(row as RequestRow), muted: true }),
+  },
+];
+
+// The columns a phone leaves out, so the rest fit the screen.
+const PHONE_HIDDEN = ["number", "requesterName", "category", "submitted"];
+
+function itemCell(r: RequestRow) {
+  return {
+    text: r.item,
+    href: `/requests/${r.id}`,
+    description: `${r.vendor} · ${r.departmentName}`,
+  };
+}
+
+function statusCell(r: RequestRow) {
+  return {
+    text: statusLabel(r.status),
+    tone: statusIntent(r.status),
+    description: r.status === "submitted" && r.pendingStep ? `waiting on ${r.pendingStep}` : undefined,
+  };
+}
+
+function submittedText(r: RequestRow): string {
+  return r.submittedAt ? shortDate(r.submittedAt) : "";
+}
+
+function watchPhone(view: View): () => void {
+  let query = matchMedia("(max-width: 40rem)");
+  let update = () => view.phone = query.matches;
+
+  update();
+  query.addEventListener("change", update);
+
+  return () => query.removeEventListener("change", update);
+}
 
 function onChange(view: View) {
   view.page = fetchFinancePage();
@@ -87,7 +157,15 @@ function exportUrl(f: Filters): string {
   return `/finance/export.csv?${p}`;
 }
 
-function departmentBars(rows: SpendRow[]) {
+interface DepartmentBar {
+  label: string;
+  committed: number;
+  pending: number;
+  left: number;
+  budget: number;
+}
+
+function departmentBars(rows: SpendRow[]): DepartmentBar[] {
   return rows.map((r) => ({
     label: r.label,
     committed: r.committedCents,
@@ -105,9 +183,8 @@ function categoryBars(rows: SpendRow[]) {
   }));
 }
 
-function budgetNote(row: Record<string, unknown>): string {
-  let budget = row.budget as number;
-  let committed = row.committed as number;
+function budgetNote(row: DepartmentBar): string {
+  let { budget, committed } = row;
 
   return committed > budget ? `${money(committed - budget)} over its ${money(budget)} budget` : `of ${money(budget)} · ${money(budget - committed)} left`;
 }
@@ -125,7 +202,9 @@ function budgetNote(row: Record<string, unknown>): string {
       range: "quarter",
       search: "",
     },
+    phone: false,
   },
+  private release: () => void = () => {},
 ) oninit={() => changes.on("notify", () => onChange(view))}>
   <head>
     <title>Finance · Spendwick</title>
@@ -178,7 +257,7 @@ function budgetNote(row: Record<string, unknown>): string {
                         maxBarSize={28}
                         label="Spend by department"
                         categoryAxis={{ size: 96 }}
-                        tooltip={{ formatter: (value) => money(value as number), footer: budgetNote }}
+                        tooltip={{ formatter: (value) => money(value as number), footer: (row) => budgetNote(row as DepartmentBar) }}
                         class="spend-chart is-departments" />
             </CardContent>
           </Card>
@@ -210,40 +289,25 @@ function budgetNote(row: Record<string, unknown>): string {
           <div class="filters cluster">
             <Input type="search" class="grow" value={view.filters.search} placeholder="Search item, vendor, person" attrs={{ "aria-label": "Search" }} />
             <NativeSelect value={view.filters.status} options={[{ value: "", label: "Any status" }, ...STATUS_OPTIONS]} attrs={{ "aria-label": "Status" }} />
-            <NativeSelect value={view.filters.department} options={[{ value: "", label: "All departments" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} attrs={{ "aria-label": "Department" }} />
+            <NativeSelect value={view.filters.department} class="is-department" options={[{ value: "", label: "All departments" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} attrs={{ "aria-label": "Department" }} />
             <NativeSelect value={view.filters.range} options={PERIOD_OPTIONS} attrs={{ "aria-label": "Period" }} />
           </div>
 
-          <Table e:if={filtered(view).length > 0} label="All requests" class="all-table">
-            <table>
-              <thead>
-                <tr>
-                  <TableHead class="hide-sm">#</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead class="hide-sm">Requested by</TableHead>
-                  <TableHead class="hide-sm">Category</TableHead>
-                  <TableHead align="end">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead class="hide-sm">Submitted</TableHead>
-                </tr>
-              </thead>
-              <tbody>
-                <tr e:for={r of filtered(view)}>
-                  <TableCell class="num hide-sm">{requestNumber(r.number)}</TableCell>
-                  <TableCell class="item">
-                    <a href={`/requests/${r.id}`}>{r.item}</a>
-                    <span class="sub">{r.vendor} · {r.departmentName}</span>
-                  </TableCell>
-                  <TableCell class="hide-sm">{r.requesterName}</TableCell>
-                  <TableCell class="hide-sm">{r.category}</TableCell>
-                  <TableCell align="end" class="amount">{money(r.amountCents)}</TableCell>
-                  <TableCell><StatusCell state={r.status} pendingStep={r.pendingStep} /></TableCell>
-                  <TableCell class="hide-sm sub">{r.submittedAt ? shortDate(r.submittedAt) : ""}</TableCell>
-                </tr>
-              </tbody>
-            </table>
-          </Table>
-          <CardContent e:else class="hint">No requests match these filters.</CardContent>
+          <DataTable data={filtered(view)}
+                     columns={COLUMNS}
+                     label="All requests"
+                     rowId={(row) => (row as RequestRow).id}
+                     hidden={view.phone ? PHONE_HIDDEN : []}
+                     emptyText="No requests match these filters."
+                     toolbar={false}
+                     footer={false}
+                     pagination={false}
+                     sortable={false}
+                     columnMenu={false}
+                     resizable={false}
+                     reorderable={false}
+                     oninsert={() => release = watchPhone(view)}
+                     onremove={() => release()} />
 
           <div class="table-foot row">
             <span>{filtered(view).length} requests</span>

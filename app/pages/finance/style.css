@@ -80,36 +80,6 @@
   min-width: 12rem;
 }
 
-.all-table .num {
-  color: var(--ink-dim);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.all-table .item {
-  white-space: normal;
-}
-
-.all-table td {
-  vertical-align: top;
-}
-
-.all-table .item a {
-  color: var(--ink);
-  font-weight: var(--weight-medium);
-  text-decoration: none;
-}
-
-.all-table .item a:hover {
-  text-decoration: underline;
-}
-
-.all-table .sub {
-  display: block;
-  color: var(--ink-dim);
-  font-size: var(--text-xs);
-}
-
 .table-foot {
   justify-content: space-between;
   padding: var(--space-3) var(--space-5);
@@ -130,13 +100,19 @@
 }
 
 @media (max-width: 40rem) {
-  .all-table .hide-sm {
-    display: none;
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: dense;
   }
 
   .filters .native-select,
   .filters .grow {
-    flex: 1;
-    min-width: 8rem;
+    min-width: 0;
+  }
+
+  .filters .grow,
+  .filters .is-department {
+    grid-column: 1 / -1;
   }
 }
