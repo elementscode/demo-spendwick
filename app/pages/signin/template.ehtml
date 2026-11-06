@@ -107,7 +107,7 @@ function groups(accounts: DemoAccount[]) {
                       {a.name}
                       <span class="demo-account-email">{a.email}</span>
                     </span>
-                    <Badge e:if={a.departmentName} variant="outline">{a.departmentName}</Badge>
+                    <Badge e:if={a.departmentName} variant="neutral">{a.departmentName}</Badge>
                   </button>
                 </li>
               </ul>

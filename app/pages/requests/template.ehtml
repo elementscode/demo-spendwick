@@ -116,7 +116,7 @@ function scopeLine(user: CurrentUser): string {
         <div e:if={user.role !== "employee"} class={["requests-top", !view.page.budget && "is-single"]}>
           <Card>
             <CardHeader>
-              <CardTitle level={2}>Waiting on you<Badge variant="outline" class="count">{view.page.inbox.length}</Badge></CardTitle>
+              <CardTitle level={2}>Waiting on you<Badge variant="neutral" class="count">{view.page.inbox.length}</Badge></CardTitle>
             </CardHeader>
             <ul e:if={view.page.inbox.length > 0} class="inbox">
               <li e:for={r of view.page.inbox}>
