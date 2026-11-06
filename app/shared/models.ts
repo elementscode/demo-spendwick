@@ -125,7 +125,7 @@ export interface RequestForm {
   departmentId: string;
   category: string;
   reason: string;
-  quote: File | null;
+  quote: File[];
   quoteName: string | null;
 }
 
@@ -172,10 +172,10 @@ export function statusLabel(s: Status): string {
   return s[0].toUpperCase() + s.slice(1);
 }
 
-export function statusIntent(s: Status): "outline" | "warning" | "success" | "danger" | "info" | "accent" {
+export function statusIntent(s: Status): "neutral" | "warning" | "success" | "danger" | "info" | "accent" {
   switch (s) {
     case "draft":
-      return "outline";
+      return "neutral";
 
     case "submitted":
       return "warning";

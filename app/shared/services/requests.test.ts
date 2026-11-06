@@ -1,4 +1,4 @@
-import { test, equal, assert, sql, errorf } from "@elements/app";
+import { File, test, equal, assert, sql, errorf } from "@elements/app";
 import { CurrentUser, RequestForm, RequestRow } from "#app/shared/models";
 import { loadUser } from "#app/shared/services/auth";
 import {
@@ -98,7 +98,7 @@ function form(deptId: string, amount: string): RequestForm {
     departmentId: deptId,
     category: "Hardware",
     reason: "Second screen",
-    quote: null,
+    quote: [],
     quoteName: null,
   };
 }
@@ -215,6 +215,24 @@ test("approvals", async () => {
     await throws("an employee", () => advanceAs(w.employee, id, "ordered", ""));
     advanceAs(w.finance, id, "ordered", "");
     equal(loadDetail(w.finance, id).status, "ordered");
+  });
+
+  test("a draft keeps its attached quote", async () => {
+    let w = world();
+    let data = new TextEncoder().encode("Quote 4471: two monitors, $300");
+    let quote = new File({
+      name: "quote.txt",
+      size: data.length,
+      contentType: "text/plain",
+      data,
+      lastModified: new Date(),
+    });
+
+    let id = saveRequestAs(w.employee, { ...form(w.deptId, "300"), quote: [quote] }, false);
+
+    let d = loadDetail(w.employee, id);
+    equal(d.quoteName, "quote.txt");
+    equal(d.quoteSize, data.length);
   });
 
   test("validation reports each bad field", async () => {

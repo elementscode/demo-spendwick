@@ -17,7 +17,7 @@ export default function route(req: Request, res: Response) {
     departmentId: user.departmentId ?? "",
     category: "",
     reason: "",
-    quote: null,
+    quote: [],
     quoteName: null,
   };
 

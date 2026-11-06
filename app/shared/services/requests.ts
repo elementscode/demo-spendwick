@@ -467,10 +467,11 @@ function validate(form: RequestForm): { amountCents: number } {
     errors.departmentId = ["pick a department"];
   }
 
-  if (form.quote) {
-    if (!QUOTE_TYPES.has(form.quote.contentType)) {
+  let quote = form.quote[0];
+  if (quote) {
+    if (!QUOTE_TYPES.has(quote.contentType)) {
       errors.quote = ["attach a PDF, image or text file"];
-    } else if (form.quote.size > MAX_QUOTE_BYTES) {
+    } else if (quote.size > MAX_QUOTE_BYTES) {
       errors.quote = ["the quote must be under 10 MB"];
     }
   }
@@ -484,7 +485,7 @@ function validate(form: RequestForm): { amountCents: number } {
 
 export function saveRequestAs(user: CurrentUser, form: RequestForm, submit: boolean): string {
   let { amountCents } = validate(form);
-  let quote: File | null = form.quote ?? null;
+  let quote: File | undefined = form.quote[0];
 
   let id = tx(() => {
     let id = form.id;

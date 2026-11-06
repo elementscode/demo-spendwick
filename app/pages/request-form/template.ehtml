@@ -60,6 +60,14 @@ function fieldError(errors: Record<string, string[]>, name: string): string {
   return errors[name]?.[0] ?? "";
 }
 
+function quoteHint(form: RequestForm): string {
+  if (form.quoteName && form.quote.length === 0) {
+    return `Attached: ${form.quoteName}. Choose a file to replace it.`;
+  }
+
+  return "PDF, image or text, up to 10 MB.";
+}
+
 function cents(view: View): number {
   let n = parseAmount(view.form.amount);
 
@@ -165,13 +173,9 @@ function route(user: CurrentUser, departments: Department[], view: View): RouteS
                 <Textarea value={view.form.reason} placeholder="What it is for, and what happens if we do not buy it" />
               </Field>
 
-              <div class="field">
-                <label for="quote">Quote</label>
-                <input id="quote" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt" value={view.form.quote} class={[view.errors.quote && "is-error"]}>
-                <p e:if={view.form.quoteName && !view.form.quote} class="hint">Attached: {view.form.quoteName}. Choose a file to replace it.</p>
-                <p e:else class="hint">PDF, image or text, up to 10 MB.</p>
-                <p e:if={view.errors.quote} class="error">{view.errors.quote[0]}</p>
-              </div>
+              <Field label="Quote" description={quoteHint(view.form)} error={fieldError(view.errors, "quote")}>
+                <Input type="file" files={view.form.quote} attrs={{ accept: ".pdf,.png,.jpg,.jpeg,.webp,.txt" }} />
+              </Field>
             </CardContent>
             <CardFooter>
               <Button variant="ghost" disabled={view.busy === "submit"} loading={view.busy === "draft"} onclick={() => onSave(view, false)}>Save draft</Button>
